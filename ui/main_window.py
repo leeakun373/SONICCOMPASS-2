@@ -308,8 +308,9 @@ class SonicCompassMainWindow(QMainWindow):
             # 强制相机看到整个数据
             scene_rect = self.visualizer.itemsBoundingRect()
             self.visualizer.setSceneRect(scene_rect)  # 更新场景边界
-            self.canvas_view.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
-            self.canvas_view.scale(0.9, 0.9)  # 稍微缩小以留出边距
+            
+            # 使用 fit_scene_to_view 方法适配视图（包含 10% padding）
+            self.canvas_view.fit_scene_to_view()
             
             # 设置画布交互
             self._setup_canvas_interaction()

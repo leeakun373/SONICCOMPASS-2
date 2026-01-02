@@ -56,6 +56,33 @@ class InspectorPanel(QScrollArea):
         title.setStyleSheet("color: #5E6AD2; text-transform: uppercase;")
         self.layout.addWidget(title)
         
+        # 库（Library）- 从filepath提取或使用metadata中的library字段
+        library_name = None
+        if metadata.get('library'):
+            library_name = metadata['library']
+        elif metadata.get('filepath'):
+            # 从filepath中提取库名（第一个路径段）
+            from pathlib import Path
+            filepath = metadata['filepath']
+            if filepath:
+                path_parts = Path(filepath).parts
+                if len(path_parts) > 0:
+                    # 通常库名是路径的第一或第二个部分
+                    library_name = path_parts[0] if path_parts[0] else (path_parts[1] if len(path_parts) > 1 else None)
+        
+        if library_name:
+            library_label = QLabel(f"<b>库:</b> {library_name}")
+            library_label.setWordWrap(True)
+            library_label.setStyleSheet("color: #8B9FFF;")
+            self.layout.addWidget(library_label)
+        
+        # 文件路径
+        if metadata.get('filepath'):
+            filepath_label = QLabel(f"<b>文件路径:</b><br><span style='font-family: Consolas, monospace; color: #A0A0A0;'>{metadata['filepath']}</span>")
+            filepath_label.setWordWrap(True)
+            filepath_label.setOpenExternalLinks(False)
+            self.layout.addWidget(filepath_label)
+        
         # 文件名
         if metadata.get('filename'):
             filename_label = QLabel(f"<b>文件名:</b> {metadata['filename']}")
@@ -74,13 +101,17 @@ class InspectorPanel(QScrollArea):
         
         # 描述
         if metadata.get('description'):
-            desc_label = QLabel(f"<b>描述:</b><br>{metadata['description']}")
+            desc_label = QLabel(f"<b>描述:</b><br><span style='color: #E1E4E8;'>{metadata['description']}</span>")
             desc_label.setWordWrap(True)
             self.layout.addWidget(desc_label)
         
         # 关键词
         if metadata.get('keywords'):
-            keywords_label = QLabel(f"<b>关键词:</b><br>{metadata['keywords']}")
+            keywords_text = metadata['keywords']
+            # 如果keywords是列表，转换为字符串
+            if isinstance(keywords_text, list):
+                keywords_text = ', '.join(str(k) for k in keywords_text if k)
+            keywords_label = QLabel(f"<b>关键词:</b><br><span style='color: #C8D1D9;'>{keywords_text}</span>")
             keywords_label.setWordWrap(True)
             self.layout.addWidget(keywords_label)
         

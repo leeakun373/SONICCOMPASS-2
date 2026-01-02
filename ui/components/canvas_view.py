@@ -47,18 +47,120 @@ class CanvasView(QGraphicsView):
         # 框选相关
         self._selection_start_pos = None
         self._is_selecting = False
+        
+        # 启用鼠标跟踪（用于双击事件）
+        self.setMouseTracking(True)
+    
+    def _calculate_min_zoom(self) -> float:
+        """计算最小缩放级别（刚好能看到全图）"""
+        try:
+            scene = self.scene()
+            if scene is None:
+                return 0.1
+            
+            scene_rect = scene.itemsBoundingRect()
+            if scene_rect.isEmpty() or scene_rect.width() <= 0 or scene_rect.height() <= 0:
+                return 0.1
+            
+            view_rect = self.viewport().rect()
+            if view_rect.width() <= 0 or view_rect.height() <= 0:
+                return 0.1
+            
+            scale_x = view_rect.width() / scene_rect.width()
+            scale_y = view_rect.height() / scene_rect.height()
+            min_scale = min(scale_x, scale_y) * 0.9  # 留 10% 边距
+            
+            # 确保返回的值在合理范围内
+            if min_scale < 0.01 or min_scale > 5.0:
+                return 0.1
+            
+            return min_scale
+        except Exception:
+            # 任何错误都返回默认值
+            return 0.1
+    
+    def fit_scene_to_view(self):
+        """适配场景到视图（初始化时调用）"""
+        scene = self.scene()
+        if scene is None:
+            return
+        
+        # 使用场景的 sceneRect 而不是 itemsBoundingRect，更可靠
+        scene_rect = scene.sceneRect()
+        if scene_rect.isEmpty():
+            # 如果 sceneRect 为空，尝试使用 itemsBoundingRect
+            scene_rect = scene.itemsBoundingRect()
+        
+        if not scene_rect.isEmpty() and scene_rect.width() > 0 and scene_rect.height() > 0:
+            # 添加 10% padding
+            padding_x = scene_rect.width() * 0.1
+            padding_y = scene_rect.height() * 0.1
+            scene_rect.adjust(-padding_x, -padding_y, padding_x, padding_y)
+            
+            # 重置变换矩阵，然后适配视图
+            self.resetTransform()
+            self.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
+            
+            # 通知 LOD 更新
+            zoom_level = self.transform().m11()
+            if zoom_level > 0:
+                self.zoom_changed.emit(zoom_level)
     
     def wheelEvent(self, event):
-        """鼠标滚轮缩放"""
+        """鼠标滚轮缩放（带 min/max 限制）"""
+        # 接受事件，防止传递给父组件
+        event.accept()
+        
+        # 获取当前缩放级别
+        current_zoom = self.transform().m11()
+        if current_zoom <= 0:
+            # 如果当前缩放无效，重置到默认值
+            current_zoom = 1.0
+            self.resetTransform()
+        
         scale_factor = 1.15
         if event.angleDelta().y() < 0:
             scale_factor = 1.0 / scale_factor
         
-        self.scale(scale_factor, scale_factor)
+        new_zoom = current_zoom * scale_factor
         
-        # 通知 LOD 更新 - 使用真实的 transform scale
-        zoom_level = self.transform().m11()
-        self.zoom_changed.emit(zoom_level)
+        # 简化的缩放限制：只设置合理的边界，不阻止正常缩放
+        max_zoom = 20.0  # 允许更大的放大
+        min_zoom = 0.01  # 允许更小的缩小
+        
+        # 只在极端情况下限制缩放
+        if new_zoom < min_zoom:
+            # 如果新缩放太小，限制到最小值
+            if current_zoom > 0:
+                target_scale = min_zoom / current_zoom
+                if target_scale > 0:
+                    self.scale(target_scale, target_scale)
+                    self.zoom_changed.emit(self.transform().m11())
+        elif new_zoom > max_zoom:
+            # 如果新缩放太大，限制到最大值
+            if current_zoom > 0:
+                target_scale = max_zoom / current_zoom
+                if target_scale > 0:
+                    self.scale(target_scale, target_scale)
+                    self.zoom_changed.emit(self.transform().m11())
+        else:
+            # 正常缩放（以鼠标位置为中心）
+            self.scale(scale_factor, scale_factor)
+            zoom_level = self.transform().m11()
+            self.zoom_changed.emit(zoom_level)
+    
+    def reset_view(self):
+        """重置视图到初始状态"""
+        self.fit_scene_to_view()
+    
+    def keyPressEvent(self, event):
+        """键盘事件处理"""
+        # 按 R 键重置视图
+        if event.key() == Qt.Key.Key_R and event.modifiers() == Qt.KeyboardModifier.NoModifier:
+            self.reset_view()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
     
     def mousePressEvent(self, event):
         """鼠标按下事件"""
@@ -94,4 +196,12 @@ class CanvasView(QGraphicsView):
             # 左键释放后保持拖拽模式
             self.setDragMode(self.DragMode.ScrollHandDrag)
         super().mouseReleaseEvent(event)
+    
+    def mouseDoubleClickEvent(self, event):
+        """双击事件：重置视图到初始状态"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.reset_view()
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
 

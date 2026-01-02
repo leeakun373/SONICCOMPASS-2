@@ -105,9 +105,26 @@ python main.py
 - `gui_main.py`: 重定向到 `ui.main_window`
 - `visualizer.py`: 重定向到 `ui.visualizer`
 
+## 最新更新（2025-01-02）
+
+### 可视化核心修复
+- ✅ 散点分布算法：实现局部向日葵螺旋布局，解决重叠问题
+- ✅ 点击命中测试：使用最终显示坐标构建 cKDTree，确保坐标一致性
+- ✅ LOD 标签逻辑：LOD 1 使用 Counter 统计 keywords/subcategory 的 Mode
+- ✅ 视觉与颜色：统一使用 CategoryColorMapper 获取颜色
+- ✅ 视图控制：添加 min/max zoom 限制，双击重置视图功能
+- ✅ Inspector 面板增强：新增库、文件路径、描述显示
+
+### 技术改进
+- 数据密度优化：归一化范围从 10000.0 减小到 3500.0
+- 散点规整化：向日葵螺旋布局，确保点在六边形内部
+- LOD 优化：降低聚类阈值，改进字体缩放公式
+- 颜色统一：所有颜色从 CategoryColorMapper 获取
+
 ## 注意事项
 
 1. **缓存目录**: `cache/` 目录包含预计算的数据，首次运行需要生成
 2. **模型目录**: `models/bge-m3/` 需要包含完整的 BGE-M3 模型文件
 3. **测试资源**: `test_assets/` 包含测试用的 SQLite 数据库文件
+4. **缩放功能**: 双击画布或按 R 键可重置视图
 
