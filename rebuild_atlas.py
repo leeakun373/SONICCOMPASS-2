@@ -8,6 +8,12 @@ import os
 import time
 from pathlib import Path
 
+# 修复 Windows 终端编码问题
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 # 确保能找到模块
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -65,7 +71,15 @@ def rebuild():
     print("\n🗺️  计算 UMAP 坐标...")
     coord_start = time.time()
     
-    reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
+    reducer = umap.UMAP(
+        n_components=2,
+        n_neighbors=100,      # 强迫看清大局，把碎岛拼成大陆
+        min_dist=0.0,         # 允许点无限堆叠，极度紧凑
+        spread=1.0,           # 限制扩散范围
+        metric='cosine',      # 使用余弦相似度（对音频语义更好）
+        random_state=42,
+        n_jobs=1              # 避免并行计算导致的微小差异
+    )
     coords_2d = reducer.fit_transform(embeddings)
     
     # 保存坐标

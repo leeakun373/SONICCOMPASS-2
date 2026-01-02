@@ -3,8 +3,8 @@
 """
 
 from PySide6.QtWidgets import QGraphicsView, QFrame
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QRectF
+from PySide6.QtCore import Qt, Signal, QRectF
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 

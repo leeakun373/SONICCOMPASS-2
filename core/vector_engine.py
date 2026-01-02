@@ -44,20 +44,36 @@ class VectorEngine:
             print(f"正在加载模型: {self.model_path_str}")
             print(f"使用设备: {self.device}")
             
+            # 显式指定设备，确保使用 GPU（如果可用）
+            device_str = self.device
+            if device_str == 'cuda' and not torch.cuda.is_available():
+                print("[WARNING] CUDA 不可用，回退到 CPU")
+                device_str = 'cpu'
+            elif device_str == 'mps' and (not hasattr(torch.backends, 'mps') or not torch.backends.mps.is_available()):
+                print("[WARNING] MPS 不可用，回退到 CPU")
+                device_str = 'cpu'
+            
             # 如果路径是目录且存在，加载本地模型
             # 否则假设是 HuggingFace 模型名称
             if self.model_path.exists() and self.model_path.is_dir():
                 self.model = SentenceTransformer(
                     str(self.model_path),
-                    device=self.device
+                    device=device_str  # 显式传递设备
                 )
             else:
                 # 尝试作为 HuggingFace 模型名称加载
                 # 首次运行会自动下载
                 self.model = SentenceTransformer(
                     self.model_path_str,
-                    device=self.device
+                    device=device_str  # 显式传递设备
                 )
+            
+            # 验证模型实际使用的设备
+            if hasattr(self.model, '_modules') and len(self.model._modules) > 0:
+                first_module = list(self.model._modules.values())[0]
+                if hasattr(first_module, 'device'):
+                    actual_device = str(first_module.device)
+                    print(f"模型实际运行在: {actual_device}")
             
             print("模型加载完成")
             
@@ -81,7 +97,7 @@ class VectorEngine:
     def encode_batch(
         self,
         texts: List[str],
-        batch_size: int = 32,
+        batch_size: int = None,
         show_progress: bool = True,
         normalize_embeddings: bool = True
     ) -> np.ndarray:
@@ -90,7 +106,7 @@ class VectorEngine:
         
         Args:
             texts: 文本列表
-            batch_size: 批处理大小
+            batch_size: 批处理大小（如果为 None，将根据设备自动选择）
             show_progress: 是否显示进度条
             normalize_embeddings: 是否归一化向量
             
@@ -101,6 +117,15 @@ class VectorEngine:
             return np.array([])
         
         try:
+            # 如果没有指定 batch_size，根据设备自动选择
+            if batch_size is None:
+                if self.device == 'cuda':
+                    batch_size = 64  # GPU 可以使用更大的 batch size
+                elif self.device == 'mps':
+                    batch_size = 32  # MPS 使用中等 batch size
+                else:
+                    batch_size = 16  # CPU 使用较小的 batch size
+            
             # 过滤空文本
             valid_texts = [text if text else "" for text in texts]
             

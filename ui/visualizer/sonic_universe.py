@@ -1,20 +1,13 @@
 """
-Sonic Universe 可视化场景
-基于绘制的批处理渲染架构 - 高性能版本
+ui/visualizer/sonic_universe.py
+可视化引擎 - 修复版 (Fix: Interaction, Layout, Rendering)
 """
 
 import numpy as np
 from typing import List, Dict, Optional, Tuple
-from PySide6.QtWidgets import (
-    QGraphicsScene, QGraphicsItem, QGraphicsTextItem,
-    QStyleOptionGraphicsItem, QWidget
-)
-from PySide6.QtCore import Qt, QPointF, QRectF, QSizeF
-from PySide6.QtGui import (
-    QColor, QPen, QBrush, QPolygonF, QRadialGradient, 
-    QPainter, QStaticText, QFont
-)
-import hashlib
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem, QStyleOptionGraphicsItem, QWidget
+from PySide6.QtCore import Qt, QPointF, QRectF
+from PySide6.QtGui import QColor, QPen, QBrush, QPolygonF, QPainter, QRadialGradient, QFont, QStaticText
 import math
 import sys
 from pathlib import Path
@@ -26,6 +19,13 @@ try:
 except ImportError:
     CategoryColorMapper = None
 
+# 尝试导入 KDTree 用于极速查询
+try:
+    from scipy.spatial import cKDTree
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+
 try:
     import umap
     UMAP_AVAILABLE = True
@@ -34,17 +34,13 @@ except ImportError:
 
 
 class HexGridLayer(QGraphicsItem):
-    """
-    六边形网格层 - 单层绘制整个网格
-    使用视口裁剪优化性能
-    """
+    """六边形网格层 - 修复版"""
     
-    # Category 颜色映射器（基于 UCS Category 大类）
+    # Category 颜色映射器
     _color_mapper: Optional['CategoryColorMapper'] = None
     
     @classmethod
     def _get_color_mapper(cls) -> Optional['CategoryColorMapper']:
-        """获取颜色映射器（单例模式）"""
         if cls._color_mapper is None and CategoryColorMapper is not None:
             try:
                 cls._color_mapper = CategoryColorMapper()
@@ -52,897 +48,374 @@ class HexGridLayer(QGraphicsItem):
                 print(f"[WARNING] 初始化 CategoryColorMapper 失败: {e}")
         return cls._color_mapper
     
-    def __init__(
-        self,
-        metadata: List[Dict],
-        coords_2d: np.ndarray,
-        hex_size: float = 50.0,
-        parent=None
-    ):
-        super().__init__(parent)
+    def __init__(self, size):
+        super().__init__()
+        self.hex_size = size
+        self.grid_data = {}  # (q, r) -> [indices]
+        self.metadata = []
+        self.coords = None
+        self.labels = []
+        self.show_labels = True
+        self.current_zoom = 1.0
+        
+    def set_data(self, grid_map, metadata, coords):
+        self.grid_data = grid_map
         self.metadata = metadata
-        self.coords_2d = coords_2d
-        self.hex_size = hex_size
+        self.coords = coords
+        self.prepareGeometryChange()
+        # 预计算标签
+        self._generate_labels(metadata)
         
-        # 当前缩放级别（用于调整透明度）
-        self.current_scale = 1.0
+    def _generate_labels(self, metadata):
+        """生成标签（简单的去重）"""
+        self.labels = []
+        category_positions = {}  # category -> [(q, r), ...]
         
-        # 计算网格数据（预计算）
-        self.grid_data: Dict[Tuple[int, int], Dict] = {}
-        self._build_grid_data()
-        
-        # 计算边界矩形
-        self._compute_bounding_rect()
-        
-        # 设置标志
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemHasNoContents, False)
-    
-    def set_scale(self, scale: float):
-        """设置当前缩放级别"""
-        self.current_scale = scale
-        self.update()
-    
-    def _build_grid_data(self):
-        """构建网格数据（预计算）"""
-        self.grid_data.clear()
-        
-        # 量化：将每个点吸附到最近的六边形中心
-        for i, (x, y) in enumerate(self.coords_2d):
-            q, r = self._pixel_to_hex(x, y)
-            hex_key = (q, r)
-            
-            if hex_key not in self.grid_data:
-                self.grid_data[hex_key] = {
-                    'q': q,
-                    'r': r,
-                    'indices': [],
-                    'categories': {},
-                    'subcategories': {}
-                }
-            
-            self.grid_data[hex_key]['indices'].append(i)
-            
-            # 统计分类（基于 Category 大类）和子分类
-            cat_id = self.metadata[i].get('category', '')
-            if cat_id:
+        for (q, r), indices in self.grid_data.items():
+            if not indices:
+                continue
+            # 获取第一个点的分类
+            first_idx = indices[0]
+            if first_idx < len(metadata):
+                cat_id = metadata[first_idx].get('category', '')
                 mapper = self._get_color_mapper()
                 if mapper:
-                    category_name = mapper.get_category_from_catid(cat_id)
-                    if category_name:
-                        self.grid_data[hex_key]['categories'][category_name] = \
-                            self.grid_data[hex_key]['categories'].get(category_name, 0) + 1
-                    subcategory_name = mapper.get_subcategory_from_catid(cat_id)
-                    if subcategory_name:
-                        self.grid_data[hex_key]['subcategories'][subcategory_name] = \
-                            self.grid_data[hex_key]['subcategories'].get(subcategory_name, 0) + 1
-                else:
-                    # Fallback: 使用 CatID 前3字符
-                    cat_key = cat_id[:3].upper() if len(cat_id) >= 3 else cat_id.upper()
-                    self.grid_data[hex_key]['categories'][cat_key] = \
-                        self.grid_data[hex_key]['categories'].get(cat_key, 0) + 1
+                    category = mapper.get_category_from_catid(cat_id)
+                    if category:
+                        if category not in category_positions:
+                            category_positions[category] = []
+                        category_positions[category].append((q, r))
         
-        # 计算主导分类、子分类和密度
-        for hex_key, data in self.grid_data.items():
-            if data['categories']:
-                data['dominant_cat'] = max(data['categories'], key=data['categories'].get)
-            else:
-                data['dominant_cat'] = None
+        # 为每个分类计算质心位置
+        for category, positions in category_positions.items():
+            if len(positions) > 3:  # 只显示较大的聚类
+                centers = [self._hex_to_pixel(q, r) for q, r in positions]
+                centroid_x = sum(c.x() for c in centers) / len(centers)
+                centroid_y = sum(c.y() for c in centers) / len(centers)
+                self.labels.append({
+                    'text': category.upper(),
+                    'pos': QPointF(centroid_x, centroid_y)
+                })
+    
+    def boundingRect(self):
+        # 估算一个超大范围即可，视口裁剪由 paint 处理
+        return QRectF(-50000, -50000, 100000, 100000)
+        
+    def paint(self, painter, option, widget):
+        # 1. 视口裁剪：只画可见区域
+        clip_rect = option.exposedRect
+        
+        # 简化的绘制逻辑
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # 绘制参数 (赛博朋克风)
+        gap_ratio = 0.92  # 92% 大小 -> 8% 黑色缝隙
+        
+        for (q, r), indices in self.grid_data.items():
+            center = self._hex_to_pixel(q, r)
             
-            if data['subcategories']:
-                data['dominant_subcat'] = max(data['subcategories'], key=data['subcategories'].get)
-            else:
-                data['dominant_subcat'] = None
+            # 粗略裁剪检查
+            if not clip_rect.contains(center):
+                continue
+                
+            # 获取颜色（基于第一个点的分类）
+            color = QColor(100, 200, 255, 150)  # 默认颜色
+            if indices and len(indices) > 0 and self.metadata:
+                idx = indices[0]
+                if idx < len(self.metadata):
+                    cat_id = self.metadata[idx].get('category', '')
+                    mapper = self._get_color_mapper()
+                    if mapper:
+                        color = mapper.get_color_for_catid(cat_id)
+                        color.setAlpha(150)
+                
+            # 绘制六边形
+            self._draw_single_hex(painter, center, len(indices), gap_ratio, color)
+
+        # 绘制标签 (LOD 0)
+        if self.show_labels:
+            self._draw_labels(painter, clip_rect)
             
-            data['density'] = min(len(data['indices']) / 10.0, 1.0)
-    
-    def _pixel_to_hex(self, x: float, y: float) -> Tuple[int, int]:
-        """将像素坐标转换为六边形轴向坐标"""
-        q = (2.0/3 * x) / self.hex_size
-        r = (-1.0/3 * x + math.sqrt(3)/3 * y) / self.hex_size
-        return self._hex_round(q, r)
-    
-    def _hex_round(self, q: float, r: float) -> Tuple[int, int]:
-        """将浮点轴向坐标四舍五入到最近的整数坐标"""
-        s = -q - r
-        q_r = round(q)
-        r_r = round(r)
-        s_r = round(s)
+    def _draw_single_hex(self, painter, center, density, gap_ratio, color):
+        size = self.hex_size * gap_ratio
+        # 创建六边形路径
+        hex_poly = QPolygonF()
+        for i in range(6):
+            angle = math.pi / 3 * i
+            x = center.x() + size * math.cos(angle)
+            y = center.y() + size * math.sin(angle)
+            hex_poly.append(QPointF(x, y))
         
-        q_diff = abs(q_r - q)
-        r_diff = abs(r_r - r)
-        s_diff = abs(s_r - s)
-        
-        if q_diff > r_diff and q_diff > s_diff:
-            q_r = -r_r - s_r
-        elif r_diff > s_diff:
-            r_r = -q_r - s_r
-        
-        return (int(q_r), int(r_r))
-    
-    def _hex_to_pixel(self, q: int, r: int) -> QPointF:
-        """将六边形轴向坐标转换为像素坐标"""
-        size = self.hex_size * 0.866  # sqrt(3)/2
-        x = size * (3.0/2 * q)
+        # 重点：颜色要透，边框要亮
+        painter.setPen(QPen(color, 1.5))
+        painter.setBrush(QBrush(QColor(20, 30, 40, min(100 + density*10, 240))))
+        painter.drawPolygon(hex_poly)
+
+    def _hex_to_pixel(self, q, r):
+        size = self.hex_size
+        x = size * (3./2 * q)
         y = size * (math.sqrt(3)/2 * q + math.sqrt(3) * r)
         return QPointF(x, y)
     
-    def _create_hexagon_polygon(self, center: QPointF, visual_size: float) -> QPolygonF:
-        """创建六边形多边形（带间距）"""
-        points = []
-        for i in range(6):
-            angle = math.pi / 3 * i
-            x = center.x() + visual_size * math.cos(angle)
-            y = center.y() + visual_size * math.sin(angle)
-            points.append(QPointF(x, y))
-        return QPolygonF(points)
-    
-    def _get_color_for_category(self, cat_id: Optional[str]) -> QColor:
-        """根据分类获取颜色（基于 Category 大类）"""
-        if not cat_id:
-            return QColor('#6B7280')
-        
-        # 使用 CategoryColorMapper 获取颜色
-        mapper = self._get_color_mapper()
-        if mapper:
-            return mapper.get_color_for_catid(cat_id)
-        
-        # Fallback: 如果映射器不可用，使用旧的哈希方法
-        hash_value = int(hashlib.md5(cat_id.encode()).hexdigest(), 16)
-        # 使用 20 色色板
-        fallback_palette = [
-            QColor('#EF4444'), QColor('#06B6D4'), QColor('#10B981'),
-            QColor('#F59E0B'), QColor('#8B5CF6'), QColor('#D946EF'),
-            QColor('#00F5FF'), QColor('#FF00FF'), QColor('#00FF00'),
-            QColor('#FFFF00'), QColor('#FF4500'), QColor('#00CED1'),
-            QColor('#FF1493'), QColor('#7FFF00'), QColor('#FFD700'),
-            QColor('#FF69B4'), QColor('#1E90FF'), QColor('#32CD32'),
-            QColor('#FF6347'), QColor('#9370DB'),
-        ]
-        color_index = hash_value % len(fallback_palette)
-        return fallback_palette[color_index]
-    
-    def _compute_bounding_rect(self):
-        """计算边界矩形"""
-        if len(self.coords_2d) == 0:
-            self._bounding_rect = QRectF(0, 0, 10000, 10000)
-            return
-        
-        min_x, min_y = self.coords_2d.min(axis=0)
-        max_x, max_y = self.coords_2d.max(axis=0)
-        
-        # 扩展边界以包含所有六边形
-        margin = self.hex_size * 2
-        self._bounding_rect = QRectF(
-            min_x - margin, min_y - margin,
-            max_x - min_x + 2 * margin,
-            max_y - min_y + 2 * margin
-        )
-    
-    def boundingRect(self) -> QRectF:
-        """返回边界矩形"""
-        return self._bounding_rect
-    
-    def paint(
-        self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
-        widget: Optional[QWidget] = None
-    ):
-        """绘制六边形网格（三级 LOD 系统）"""
-        # 获取视口矩形（在场景坐标中）
-        view_rect = option.exposedRect
-        
-        # 扩展视口以包含边缘六边形
-        margin = self.hex_size * 2
-        view_rect.adjust(-margin, -margin, margin, margin)
-        
-        # 计算需要绘制的六边形范围
-        min_q, min_r = self._pixel_to_hex(view_rect.left(), view_rect.top())
-        max_q, max_r = self._pixel_to_hex(view_rect.right(), view_rect.bottom())
-        
-        # 扩展范围以确保覆盖
-        min_q -= 1
-        min_r -= 1
-        max_q += 1
-        max_r += 1
-        
-        # 视觉大小（内缩 92%，留下 8% 黑色缝隙）
-        INSET_RATIO = 0.92
-        visual_size = self.hex_size * INSET_RATIO
-        
-        # 三级 LOD 系统
-        zoom = self.current_scale
-        
-        if zoom < 0.8:
-            # LOD 0: The Continents - 只显示六边形，100% 不透明度，大标签显示主分类
-            self._draw_hexagons_lod0(painter, view_rect, min_q, min_r, max_q, max_r, visual_size)
-            self._draw_category_labels(painter, view_rect)
-        elif zoom < 1.8:
-            # LOD 1: The Regions - 只显示六边形，80% 不透明度，中等标签显示子分类
-            self._draw_hexagons_lod1(painter, view_rect, min_q, min_r, max_q, max_r, visual_size)
-            self._draw_subcategory_labels(painter, view_rect)
-        else:
-            # LOD 2: The Details - 六边形淡出轮廓（10% 不透明度）
-            self._draw_hexagons_lod2(painter, view_rect, min_q, min_r, max_q, max_r, visual_size)
-    
-    def _draw_hexagons_lod0(self, painter, view_rect, min_q, min_r, max_q, max_r, visual_size):
-        """LOD 0: 绘制六边形，100% 不透明度"""
-        for q in range(min_q, max_q + 1):
-            for r in range(min_r, max_r + 1):
-                hex_key = (q, r)
-                if hex_key not in self.grid_data:
-                    continue
-                
-                data = self.grid_data[hex_key]
-                center = self._hex_to_pixel(q, r)
-                
-                if not view_rect.contains(center):
-                    continue
-                
-                self._draw_single_hexagon(painter, data, center, visual_size, alpha=255)
-    
-    def _draw_hexagons_lod1(self, painter, view_rect, min_q, min_r, max_q, max_r, visual_size):
-        """LOD 1: 绘制六边形，80% 不透明度"""
-        for q in range(min_q, max_q + 1):
-            for r in range(min_r, max_r + 1):
-                hex_key = (q, r)
-                if hex_key not in self.grid_data:
-                    continue
-                
-                data = self.grid_data[hex_key]
-                center = self._hex_to_pixel(q, r)
-                
-                if not view_rect.contains(center):
-                    continue
-                
-                # 80% 不透明度
-                base_alpha = int(100 + (155 * data['density']))
-                alpha = int(base_alpha * 0.8)
-                self._draw_single_hexagon(painter, data, center, visual_size, alpha=alpha)
-    
-    def _draw_hexagons_lod2(self, painter, view_rect, min_q, min_r, max_q, max_r, visual_size):
-        """LOD 2: 绘制六边形淡出轮廓，10% 不透明度"""
-        for q in range(min_q, max_q + 1):
-            for r in range(min_r, max_r + 1):
-                hex_key = (q, r)
-                if hex_key not in self.grid_data:
-                    continue
-                
-                data = self.grid_data[hex_key]
-                center = self._hex_to_pixel(q, r)
-                
-                if not view_rect.contains(center):
-                    continue
-                
-                # 10% 不透明度（淡出轮廓）
-                base_alpha = int(100 + (155 * data['density']))
-                alpha = int(base_alpha * 0.1)
-                self._draw_single_hexagon(painter, data, center, visual_size, alpha=alpha, outline_only=True)
-    
-    def _draw_single_hexagon(self, painter, data, center, visual_size, alpha, outline_only=False):
-        """绘制单个六边形（视觉优化：硬朗边框、径向渐变）"""
-        color = self._get_color_for_category(data['dominant_cat'])
-        color.setAlpha(alpha)
-        
-        # 创建六边形多边形
-        hex_poly = self._create_hexagon_polygon(center, visual_size)
-        
-        if not outline_only:
-            # 绘制径向渐变填充
-            gradient = QRadialGradient(center, visual_size)
-            center_color = QColor(color)
-            center_color.setAlpha(int(alpha * 0.4))  # 中心 40% 不透明度
-            edge_color = QColor(color)
-            edge_color.setAlpha(int(alpha * 0.1))  # 边缘 10% 不透明度
-            gradient.setColorAt(0.0, center_color)
-            gradient.setColorAt(1.0, edge_color)
-            painter.setBrush(QBrush(gradient))
-        else:
-            # LOD 2: 只绘制轮廓，不填充
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-        
-        # 绘制边框（硬朗风格：比填充色亮 50%，恒定 1.5px，硬角）
-        border_color = QColor(color)
-        border_color = border_color.lighter(150)  # 比填充色亮 50%
-        border_color.setAlpha(min(255, alpha + 50))
-        
-        pen = QPen(border_color, 1.5)
-        pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)  # 硬角
-        painter.setPen(pen)
-        
-        painter.drawPolygon(hex_poly)
-    
-    def _get_hex_neighbors(self, q: int, r: int) -> List[Tuple[int, int]]:
-        """获取六边形的6个邻居"""
-        return [
-            (q + 1, r),      # 右
-            (q + 1, r - 1),  # 右上
-            (q, r - 1),      # 左上
-            (q - 1, r),      # 左
-            (q - 1, r + 1),  # 左下
-            (q, r + 1),      # 右下
-        ]
-    
-    def _compute_category_clusters(self, view_rect: QRectF) -> Dict[str, List[QPointF]]:
-        """
-        计算主分类聚类（连通域分析）
-        返回: {category_name: [centroid1, centroid2, ...]}
-        """
-        # 1. 获取可见六边形
-        visible_hexes = []
-        min_q, min_r = self._pixel_to_hex(view_rect.left(), view_rect.top())
-        max_q, max_r = self._pixel_to_hex(view_rect.right(), view_rect.bottom())
-        
-        for q in range(min_q - 1, max_q + 2):
-            for r in range(min_r - 1, max_r + 2):
-                hex_key = (q, r)
-                if hex_key in self.grid_data:
-                    data = self.grid_data[hex_key]
-                    center = self._hex_to_pixel(q, r)
-                    if view_rect.contains(center) and data.get('dominant_cat'):
-                        visible_hexes.append((hex_key, data['dominant_cat']))
-        
-        # 2. 按主分类分组
-        category_groups: Dict[str, List[Tuple[int, int]]] = {}
-        for hex_key, category in visible_hexes:
-            if category not in category_groups:
-                category_groups[category] = []
-            category_groups[category].append(hex_key)
-        
-        # 3. 对每个主分类执行 BFS 连通域分析
-        clusters: Dict[str, List[QPointF]] = {}
-        
-        for category, hexes in category_groups.items():
-            visited = set()
-            for start_hex in hexes:
-                if start_hex in visited:
-                    continue
-                
-                # BFS 找到连通群组
-                cluster = []
-                queue = [start_hex]
-                visited.add(start_hex)
-                
-                while queue:
-                    current = queue.pop(0)
-                    cluster.append(current)
-                    
-                    # 检查6个邻居
-                    q, r = current
-                    for neighbor in self._get_hex_neighbors(q, r):
-                        if neighbor in hexes and neighbor not in visited:
-                            visited.add(neighbor)
-                            queue.append(neighbor)
-                
-                # 计算质心
-                if cluster:
-                    centroid_x = sum(self._hex_to_pixel(q, r).x() for q, r in cluster) / len(cluster)
-                    centroid_y = sum(self._hex_to_pixel(q, r).y() for q, r in cluster) / len(cluster)
-                    
-                    if category not in clusters:
-                        clusters[category] = []
-                    clusters[category].append(QPointF(centroid_x, centroid_y))
-        
-        return clusters
-    
-    def _draw_category_labels(self, painter: QPainter, view_rect: QRectF):
-        """绘制主分类标签（LOD 0：大标签）"""
-        clusters = self._compute_category_clusters(view_rect)
-        
-        # 设置字体
-        font = QFont("Segoe UI", 24, QFont.Weight.Bold)
+    def _draw_labels(self, painter, clip_rect):
+        """绘制标签"""
+        font_size = int(self.hex_size * 2.0)  # 巨大的水印
+        font = QFont("Segoe UI", font_size, QFont.Weight.Bold)
         painter.setFont(font)
         
-        for category, centroids in clusters.items():
-            for centroid in centroids:
-                # 检查是否在视口内
-                if not view_rect.contains(centroid):
-                    continue
-                
-                # 使用 QStaticText 提高性能
-                static_text = QStaticText(category.upper())
-                static_text.setTextFormat(Qt.TextFormat.PlainText)
-                
-                # 计算文本位置（居中）
-                text_rect = painter.fontMetrics().boundingRect(category.upper())
-                text_x = centroid.x() - text_rect.width() / 2
-                text_y = centroid.y() + text_rect.height() / 2
-                
-                # 绘制阴影（提高可读性）
-                shadow_color = QColor(0, 0, 0, 180)
-                painter.setPen(shadow_color)
-                painter.drawStaticText(
-                    int(text_x + 2), int(text_y + 2), static_text
-                )
-                
-                # 绘制白色文字
-                text_color = QColor(255, 255, 255, 255)
-                painter.setPen(text_color)
-                painter.drawStaticText(int(text_x), int(text_y), static_text)
-    
-    def _draw_subcategory_labels(self, painter: QPainter, view_rect: QRectF):
-        """绘制子分类标签（LOD 1：中等标签，避免重叠）"""
-        # 获取可见六边形
-        min_q, min_r = self._pixel_to_hex(view_rect.left(), view_rect.top())
-        max_q, max_r = self._pixel_to_hex(view_rect.right(), view_rect.bottom())
+        for label in self.labels:
+            if not clip_rect.contains(label['pos']):
+                continue
+            
+            static_text = QStaticText(label['text'])
+            text_rect = painter.fontMetrics().boundingRect(label['text'])
+            text_x = label['pos'].x() - text_rect.width() / 2
+            text_y = label['pos'].y() + text_rect.height() / 2
+            
+            # 绘制阴影
+            shadow_color = QColor(0, 0, 0, 180)
+            painter.setPen(shadow_color)
+            painter.drawStaticText(int(text_x + 2), int(text_y + 2), static_text)
+            
+            # 绘制白色文字
+            text_color = QColor(255, 255, 255, 255)
+            painter.setPen(text_color)
+            painter.drawStaticText(int(text_x), int(text_y), static_text)
         
-        # 设置字体
-        font = QFont("Segoe UI", 12, QFont.Weight.Normal)
-        painter.setFont(font)
-        
-        # 距离阈值（避免标签重叠）
-        min_distance = 80.0
-        placed_labels = []  # [(x, y), ...]
-        
-        for q in range(min_q, max_q + 1):
-            for r in range(min_r, max_r + 1):
-                hex_key = (q, r)
-                if hex_key not in self.grid_data:
-                    continue
-                
-                data = self.grid_data[hex_key]
-                if not data.get('dominant_subcat'):
-                    continue
-                
-                center = self._hex_to_pixel(q, r)
-                if not view_rect.contains(center):
-                    continue
-                
-                # 检查是否与已放置的标签太近
-                too_close = False
-                for placed_x, placed_y in placed_labels:
-                    distance = math.sqrt(
-                        (center.x() - placed_x) ** 2 + (center.y() - placed_y) ** 2
-                    )
-                    if distance < min_distance:
-                        too_close = True
-                        break
-                
-                if too_close:
-                    continue
-                
-                # 绘制标签
-                subcat = data['dominant_subcat']
-                static_text = QStaticText(subcat.upper())
-                static_text.setTextFormat(Qt.TextFormat.PlainText)
-                
-                text_rect = painter.fontMetrics().boundingRect(subcat.upper())
-                text_x = center.x() - text_rect.width() / 2
-                text_y = center.y() + text_rect.height() / 2
-                
-                # 绘制阴影
-                shadow_color = QColor(0, 0, 0, 150)
-                painter.setPen(shadow_color)
-                painter.drawStaticText(
-                    int(text_x + 1), int(text_y + 1), static_text
-                )
-                
-                # 绘制文字
-                text_color = QColor(255, 255, 255, 220)
-                painter.setPen(text_color)
-                painter.drawStaticText(int(text_x), int(text_y), static_text)
-                
-                # 记录已放置的标签位置
-                placed_labels.append((center.x(), center.y()))
+    def update_lod(self, zoom):
+        # LOD 逻辑
+        if zoom < 0.2: 
+            self.show_labels = True
+            self.setOpacity(1.0)
+        elif zoom > 2.0:
+            self.show_labels = False
+            self.setOpacity(0.2)  # 放大后变淡
+        self.current_zoom = zoom
+        self.update()
 
 
 class DetailScatterLayer(QGraphicsItem):
-    """
-    细节散点层 - 单层绘制所有音频点
-    基于 LOD 显示/隐藏，使用批量渲染优化性能
-    """
+    """细节散点层 - 修复版"""
     
-    # Category 颜色映射器（基于 UCS Category 大类）
-    _color_mapper: Optional['CategoryColorMapper'] = None
-    
-    @classmethod
-    def _get_color_mapper(cls) -> Optional['CategoryColorMapper']:
-        """获取颜色映射器（单例模式）"""
-        if cls._color_mapper is None and CategoryColorMapper is not None:
-            try:
-                cls._color_mapper = CategoryColorMapper()
-            except Exception as e:
-                print(f"[WARNING] 初始化 CategoryColorMapper 失败: {e}")
-        return cls._color_mapper
-    
-    def __init__(
-        self,
-        metadata: List[Dict],
-        coords_2d: np.ndarray,
-        hex_size: float = 50.0,
-        parent=None
-    ):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
+        self.points = None
+        self.metadata = []
+        self.visible = False
+        self.highlighted_indices = set()
+        
+    def set_data(self, coords, metadata):
+        self.points = coords
         self.metadata = metadata
-        self.coords_2d = coords_2d
-        self.hex_size = hex_size
-        
-        # LOD 控制（三级 LOD 系统）
-        self.lod_threshold = 1.8  # LOD 2 阈值（Zoom >= 1.8 时显示点）
-        self.current_scale = 1.0
-        
-        # 高亮索引
-        self.highlighted_indices: set = set()
-        
-        # 批量渲染缓存
-        self.cached_points: QPolygonF = QPolygonF()
-        self.cached_highlighted_points: QPolygonF = QPolygonF()
-        self.cached_normal_points_by_color: Dict[int, QPolygonF] = {}  # 按颜色分组
-        self.cached_view_rect: Optional[QRectF] = None
-        self.cached_scale: float = 0.0
-        self.cached_highlighted: set = set()
-        
-        # 预计算颜色映射（避免在 paint 中重复计算）
-        self._color_cache: Dict[int, QColor] = {}
-        self._build_color_cache()
-        
-        # 计算边界矩形
-        self._compute_bounding_rect()
-        
-        # 设置标志
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemHasNoContents, False)
+        self.prepareGeometryChange()
     
-    def _build_color_cache(self):
-        """预计算所有点的颜色"""
-        self._color_cache.clear()
-        for i, item in enumerate(self.metadata):
-            cat_id = item.get('category', '')
-            self._color_cache[i] = self._get_color_for_category(cat_id)
+    def set_highlighted_indices(self, indices):
+        self.highlighted_indices = indices
+        self.update()
     
-    def _get_color_for_category(self, cat_id: Optional[str]) -> QColor:
-        """根据分类获取颜色（基于 Category 大类）"""
-        if not cat_id:
-            return QColor('#6B7280')
+    def boundingRect(self):
+        return QRectF(-50000, -50000, 100000, 100000)
         
-        # 使用 CategoryColorMapper 获取颜色
-        mapper = self._get_color_mapper()
-        if mapper:
-            return mapper.get_color_for_catid(cat_id)
+    def paint(self, painter, option, widget):
+        if not self.visible or self.points is None:
+            return
+            
+        # 视口裁剪
+        clip_rect = option.exposedRect
+        x1, y1, x2, y2 = clip_rect.left(), clip_rect.top(), clip_rect.right(), clip_rect.bottom()
         
-        # Fallback: 如果映射器不可用，使用旧的哈希方法
-        hash_value = int(hashlib.md5(cat_id.encode()).hexdigest(), 16)
-        # 使用 20 色色板
-        fallback_palette = [
-            QColor('#EF4444'), QColor('#06B6D4'), QColor('#10B981'),
-            QColor('#F59E0B'), QColor('#8B5CF6'), QColor('#D946EF'),
-            QColor('#00F5FF'), QColor('#FF00FF'), QColor('#00FF00'),
-            QColor('#FFFF00'), QColor('#FF4500'), QColor('#00CED1'),
-            QColor('#FF1493'), QColor('#7FFF00'), QColor('#FFD700'),
-            QColor('#FF69B4'), QColor('#1E90FF'), QColor('#32CD32'),
-            QColor('#FF6347'), QColor('#9370DB'),
-        ]
-        color_index = hash_value % len(fallback_palette)
-        return fallback_palette[color_index]
-    
-    def _compute_bounding_rect(self):
-        """计算边界矩形"""
-        if len(self.coords_2d) == 0:
-            self._bounding_rect = QRectF(0, 0, 10000, 10000)
+        # Numpy 裁剪
+        mask = (self.points[:,0] >= x1) & (self.points[:,0] <= x2) & \
+               (self.points[:,1] >= y1) & (self.points[:,1] <= y2)
+        visible_points = self.points[mask]
+        visible_indices = np.where(mask)[0]
+        
+        if len(visible_points) == 0: 
             return
         
-        min_x, min_y = self.coords_2d.min(axis=0)
-        max_x, max_y = self.coords_2d.max(axis=0)
-        
-        margin = 10
-        self._bounding_rect = QRectF(
-            min_x - margin, min_y - margin,
-            max_x - min_x + 2 * margin,
-            max_y - min_y + 2 * margin
-        )
-    
-    def boundingRect(self) -> QRectF:
-        """返回边界矩形"""
-        return self._bounding_rect
-    
-    def set_scale(self, scale: float):
-        """设置当前缩放级别"""
-        if self.current_scale != scale:
-            self.current_scale = scale
-            # 清除缓存以强制重新计算
-            self.cached_scale = 0.0
-            self.update()
-    
-    def set_highlighted_indices(self, indices: set):
-        """设置高亮索引"""
-        if self.highlighted_indices != indices:
-            self.highlighted_indices = indices
-            # 清除缓存以强制重新计算
-            self.cached_highlighted = set()
-            self.update()
-    
-    def update_cache(self, view_rect: QRectF):
-        """更新缓存：使用 numpy 进行视口裁剪和批量点计算"""
-        # 检查缓存是否有效
-        if (self.cached_view_rect is not None and
-            self.cached_view_rect.contains(view_rect) and
-            self.cached_scale == self.current_scale and
-            self.cached_highlighted == self.highlighted_indices):
-            return  # 缓存有效，无需更新
-        
-        # 更新缓存标记
-        self.cached_view_rect = view_rect
-        self.cached_scale = self.current_scale
-        self.cached_highlighted = self.highlighted_indices.copy()
-        
-        # 扩展视口以确保边缘点也被包含
-        margin = 10
-        expanded_rect = QRectF(view_rect)
-        expanded_rect.adjust(-margin, -margin, margin, margin)
-        
-        # 使用 numpy 布尔索引快速筛选视口内的点
-        if len(self.coords_2d) == 0:
-            self.cached_points = QPolygonF()
-            self.cached_highlighted_points = QPolygonF()
-            self.cached_normal_points = QPolygonF()
-            return
-        
-        # 快速筛选：找出在视口内的点
-        in_viewport = (
-            (self.coords_2d[:, 0] >= expanded_rect.left()) &
-            (self.coords_2d[:, 0] <= expanded_rect.right()) &
-            (self.coords_2d[:, 1] >= expanded_rect.top()) &
-            (self.coords_2d[:, 1] <= expanded_rect.bottom())
-        )
-        visible_indices = np.where(in_viewport)[0]
-        
-        if len(visible_indices) == 0:
-            self.cached_points = QPolygonF()
-            self.cached_highlighted_points = QPolygonF()
-            self.cached_normal_points = QPolygonF()
-            return
+        painter.setRenderHint(QPainter.Antialiasing)
         
         # 分离高亮点和普通点
         highlighted_mask = np.isin(visible_indices, list(self.highlighted_indices))
-        highlighted_indices = visible_indices[highlighted_mask]
-        normal_indices = visible_indices[~highlighted_mask]
+        highlighted_points = visible_points[highlighted_mask]
+        normal_points = visible_points[~highlighted_mask]
         
-        # 批量创建高亮点 QPointF 列表
-        if len(highlighted_indices) > 0:
-            highlighted_coords = self.coords_2d[highlighted_indices]
-            self.cached_highlighted_points = QPolygonF([
-                QPointF(x, y) for x, y in highlighted_coords
-            ])
-        else:
-            self.cached_highlighted_points = QPolygonF()
-        
-        # 按颜色分组普通点（用于批量绘制不同颜色的点）
-        self.cached_normal_points_by_color.clear()
-        if len(normal_indices) > 0:
-            normal_coords = self.coords_2d[normal_indices]
-            # 按颜色分组（使用颜色 RGB 值作为键）
-            for idx, (x, y) in zip(normal_indices, normal_coords):
-                color = self._color_cache.get(idx, QColor('#6B7280'))
-                color_key = color.rgb()
-                if color_key not in self.cached_normal_points_by_color:
-                    self.cached_normal_points_by_color[color_key] = QPolygonF()
-                self.cached_normal_points_by_color[color_key].append(QPointF(x, y))
-        
-        # 合并所有点（用于某些绘制操作）
-        self.cached_points = QPolygonF(self.cached_highlighted_points)
-        for color_points in self.cached_normal_points_by_color.values():
-            for point in color_points:
-                self.cached_points.append(point)
-    
-    def paint(
-        self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
-        widget: Optional[QWidget] = None
-    ):
-        """绘制散点（LOD 2：Zoom >= 1.8 时显示）"""
-        # LOD 2 控制：只有在 zoom >= 1.8 时才显示点
-        if self.current_scale < self.lod_threshold:
-            return  # LOD 0/1：不绘制点
-        
-        # 获取视口矩形
-        view_rect = option.exposedRect
-        
-        # 更新缓存（如果需要）
-        self.update_cache(view_rect)
-        
-        # 如果缓存为空，直接返回
-        if len(self.cached_points) == 0:
-            return
-        
-        # 计算点的透明度（基于缩放级别，淡入效果）
-        fade_start = self.lod_threshold
-        fade_end = self.lod_threshold * 2
-        if self.current_scale < fade_end:
-            fade_alpha = int(255 * (self.current_scale - fade_start) / (fade_end - fade_start))
-            fade_alpha = max(0, min(255, fade_alpha))
-        else:
-            fade_alpha = 255
-        
-        # 批量绘制：使用 drawPoints 按颜色分组（无循环）
-        # 虽然需要多次 drawPoints 调用，但每组都是批量绘制，性能仍然很好
-        
-        # 计算普通点的透明度（如果有高亮，则淡出）
-        normal_alpha = fade_alpha
-        if self.highlighted_indices:
-            # Gravity 模式：非匹配项淡出到 10% 透明度
-            normal_alpha = int(fade_alpha * 0.1)  # 非匹配项几乎透明
-        
-        # 按颜色分组批量绘制普通点
-        for color_key, points in self.cached_normal_points_by_color.items():
-            if len(points) == 0:
-                continue
+        # 修复方点问题：使用 RoundCap
+        if len(normal_points) > 0:
+            pen = QPen(QColor(255, 255, 255, 200))
+            pen.setWidthF(4.0)  # 点的大小
+            pen.setCapStyle(Qt.RoundCap)  # 圆点！
+            painter.setPen(pen)
             
-            # 获取颜色并设置透明度
-            color = QColor()
-            color.setRgb(color_key)
-            color.setAlpha(normal_alpha)
-            
-            # 批量绘制该颜色的所有点
-            painter.setPen(QPen(color, 2.0))
-            painter.drawPoints(points)
+            # 批量绘制
+            qpoints = [QPointF(p[0], p[1]) for p in normal_points]
+            painter.drawPoints(qpoints)
         
-        # 绘制高亮点（白色，更大，完全不透明）
-        if len(self.cached_highlighted_points) > 0:
-            painter.setPen(QPen(QColor(255, 255, 255, 255), 3.0))
-            painter.drawPoints(self.cached_highlighted_points)
+        # 绘制高亮点（白色，更大）
+        if len(highlighted_points) > 0:
+            pen = QPen(QColor(255, 255, 255, 255))
+            pen.setWidthF(6.0)
+            pen.setCapStyle(Qt.RoundCap)
+            painter.setPen(pen)
+            qpoints = [QPointF(p[0], p[1]) for p in highlighted_points]
+            painter.drawPoints(qpoints)
         
-        # 注意：光晕效果需要额外的绘制调用，为了性能暂时省略
-        # 如果需要光晕，可以在 paint 方法中添加额外的批量绘制调用
-        # 但会增加绘制时间，建议在性能测试后再决定是否添加
+    def update_lod(self, zoom):
+        # 只有放大了才显示点
+        self.visible = (zoom > 0.8)
+        self.update()
 
 
 class SonicUniverse(QGraphicsScene):
-    """
-    Sonic Universe 可视化场景
-    使用基于绘制的批处理渲染架构
-    """
+    """Sonic Universe 可视化场景 - 修复版"""
     
-    def __init__(
-        self,
-        metadata: List[Dict],
-        embeddings: np.ndarray,
-        coords_2d: Optional[np.ndarray] = None,
-        hex_size: float = 50.0,
-        search_core: Optional[object] = None,
-        parent=None
-    ):
+    def __init__(self, metadata, embeddings, coords_2d=None, hex_size=50.0, search_core=None, parent=None):
         super().__init__(parent)
         self.metadata = metadata
         self.embeddings = embeddings
-        self.hex_size = hex_size
+        self.hex_size = float(hex_size)
         self.search_core = search_core
         
-        # 2D 投影坐标
-        if coords_2d is not None:
-            self.coords_2d = coords_2d.copy()
-        else:
-            self.coords_2d: Optional[np.ndarray] = None
+        # 坐标处理
+        self.coords_2d = coords_2d
+        if self.coords_2d is None:
+            # Fallback for safety
+            self.coords_2d = np.random.rand(len(metadata), 2) * 10000
         
-        # 归一化坐标到大型画布范围（支持深度缩放）
-        if self.coords_2d is not None:
+        # 构建空间索引 (用于极速点击检测)
+        self.tree = None
+        if SCIPY_AVAILABLE and len(self.coords_2d) > 0:
+            # 先归一化坐标，然后构建树
             self._normalize_coordinates()
+            self.tree = cKDTree(self.norm_coords)
+        else:
+            self._normalize_coordinates()
+
+        # 核心数据结构
+        self.hex_layer = HexGridLayer(self.hex_size)
+        self.scatter_layer = DetailScatterLayer()
+        self.addItem(self.hex_layer)
+        self.addItem(self.scatter_layer)
         
-        # 保存原始坐标
-        self.original_coords_2d: Optional[np.ndarray] = None
-        if self.coords_2d is not None:
-            self.original_coords_2d = self.coords_2d.copy()
+        # 确保散点在蜂窝之上
+        self.hex_layer.setZValue(0)
+        self.scatter_layer.setZValue(10)
         
         # 视图模式
-        self.view_mode = 'explorer'  # 'explorer', 'gravity', 或 'scatter'
-        
-        # Scatter 模式相关
-        self.axis_config: Optional[Dict] = None
-        self.scatter_coords_2d: Optional[np.ndarray] = None
-        
-        # 引力视图相关
-        self.gravity_pillars: List[str] = []
-        self.gravity_weights: Optional[List[Dict[str, float]]] = None
-        self.gravity_coords_2d: Optional[np.ndarray] = None
-        self.pillar_items: List[QGraphicsItem] = []
-        
-        # 当前缩放级别
+        self.view_mode = 'explorer'
+        self.original_coords_2d = self.norm_coords.copy() if hasattr(self, 'norm_coords') else None
+        self.gravity_coords_2d = None
+        self.scatter_coords_2d = None
+        self.axis_config = None
+        self.gravity_pillars = []
+        self.gravity_weights = None
+        self.highlighted_indices = set()
         self.current_zoom = 1.0
         
-        # 高亮索引
-        self.highlighted_indices: set = set()
-        
-        # 初始化
-        if self.coords_2d is None:
-            self._compute_2d_projection()
-        if self.coords_2d is not None:
-            self.original_coords_2d = self.coords_2d.copy()
-        
-        self._setup_scene()
-        self._build_layers()
+        # 构建网格
+        self._build_scene_data()
     
     def _normalize_coordinates(self):
         """归一化坐标到大型画布范围（10000x10000）"""
         if self.coords_2d is None or len(self.coords_2d) == 0:
             return
         
-        # 获取当前坐标范围
-        min_x, min_y = self.coords_2d.min(axis=0)
-        max_x, max_y = self.coords_2d.max(axis=0)
-        
-        # 计算当前范围
-        range_x = max_x - min_x
-        range_y = max_y - min_y
-        
-        # 避免除零
-        if range_x == 0:
-            range_x = 1.0
-        if range_y == 0:
-            range_y = 1.0
-        
-        # 目标范围：10000x10000，保留边距
-        target_size = 10000.0
-        margin = 100.0  # 边距
-        target_range = target_size - 2 * margin
-        
-        # 归一化：保持宽高比，缩放到目标范围
-        scale_x = target_range / range_x
-        scale_y = target_range / range_y
-        scale = min(scale_x, scale_y)  # 使用较小的缩放比例以保持宽高比
-        
-        # 应用缩放和平移
-        self.coords_2d = (self.coords_2d - np.array([min_x, min_y])) * scale + margin
+        # 1. 坐标归一化到大场景 (10000x10000)
+        min_v = np.min(self.coords_2d, axis=0)
+        max_v = np.max(self.coords_2d, axis=0)
+        scale = 10000.0 / (np.max(max_v - min_v) + 1e-5)
+        self.norm_coords = (self.coords_2d - min_v) * scale
     
-    def _compute_2d_projection(self):
-        """计算 2D 投影（如果坐标不存在）"""
-        if not UMAP_AVAILABLE:
-            raise RuntimeError("UMAP is required for 2D projection")
-        
-        # 使用 UMAP 进行降维
-        reducer = umap.UMAP(n_components=2, random_state=42)
-        self.coords_2d = reducer.fit_transform(self.embeddings)
-        self._normalize_coordinates()
-    
-    def _setup_scene(self):
-        """设置场景"""
-        # 设置场景范围
-        if self.coords_2d is not None and len(self.coords_2d) > 0:
-            min_x, min_y = self.coords_2d.min(axis=0)
-            max_x, max_y = self.coords_2d.max(axis=0)
-            margin = 500.0
-            self.setSceneRect(
-                min_x - margin, min_y - margin,
-                max_x - min_x + 2 * margin,
-                max_y - min_y + 2 * margin
-            )
-        else:
-            self.setSceneRect(0, 0, 10000, 10000)
-    
-    def _build_layers(self):
-        """构建渲染层"""
-        if self.coords_2d is None or len(self.coords_2d) == 0:
+    def _build_scene_data(self):
+        """完全基于数据生成网格，杜绝空蜂窝"""
+        if not hasattr(self, 'norm_coords') or self.norm_coords is None or len(self.norm_coords) == 0:
             return
+
+        # 2. 只有"有数据"的地方才会有蜂窝
+        grid_map = {}  # (q, r) -> [indices]
         
-        # 创建六边形网格层（背景层，Z值=0）
-        self.hex_layer = HexGridLayer(
-            self.metadata,
-            self.coords_2d,
-            self.hex_size,
-            parent=None
-        )
-        self.hex_layer.setZValue(0)
-        self.addItem(self.hex_layer)
+        for idx, (x, y) in enumerate(self.norm_coords):
+            q, r = self._pixel_to_hex(x, y)
+            if (q, r) not in grid_map:
+                grid_map[(q, r)] = []
+            grid_map[(q, r)].append(idx)
+            
+        # 3. 传递数据给图层
+        self.hex_layer.set_data(grid_map, self.metadata, self.norm_coords)
+        self.scatter_layer.set_data(self.norm_coords, self.metadata)
         
-        # 创建散点层（前景层，Z值=1）
-        self.scatter_layer = DetailScatterLayer(
-            self.metadata,
-            self.coords_2d,
-            self.hex_size,
-            parent=None
-        )
-        self.scatter_layer.setZValue(1)
-        self.addItem(self.scatter_layer)
+        # 4. 自动调整相机范围
+        rect = self.itemsBoundingRect()
+        rect.adjust(-500, -500, 500, 500)  # Padding
+        self.setSceneRect(rect)
     
-    def update_lod(self, zoom_level: float):
-        """更新 LOD（Level of Detail）- 使用真实的 transform scale"""
-        self.current_zoom = zoom_level
+    def _pixel_to_hex(self, x, y):
+        size = self.hex_size
+        q = (2./3 * x) / size
+        r = (-1./3 * x + math.sqrt(3)/3 * y) / size
+        return self._hex_round(q, r)
+
+    def _hex_round(self, q, r):
+        # 轴向坐标四舍五入算法
+        s = -q - r
+        rq, rr, rs = round(q), round(r), round(s)
+        q_diff, r_diff, s_diff = abs(rq - q), abs(rr - r), abs(rs - s)
+        if q_diff > r_diff and q_diff > s_diff:
+            rq = -rr - rs
+        elif r_diff > s_diff:
+            rr = -rq - rs
+        return int(rq), int(rr)
+
+    # --- 交互核心：手动命中测试 ---
+    def find_closest_data(self, scene_pos):
+        """找到鼠标点击位置最近的数据"""
+        if self.tree is None or not hasattr(self, 'norm_coords'):
+            return None
         
-        # 更新散点层的缩放级别
-        if hasattr(self, 'scatter_layer'):
-            self.scatter_layer.set_scale(zoom_level)
+        # 查询最近邻，距离阈值设为 20px (太远点不到)
+        try:
+            dist, idx = self.tree.query([scene_pos.x(), scene_pos.y()], distance_upper_bound=20)
+            
+            if dist == float('inf') or idx >= len(self.metadata):
+                return None
+            
+            return {
+                'index': int(idx),
+                'metadata': self.metadata[int(idx)],
+                'pos': self.norm_coords[int(idx)]
+            }
+        except Exception as e:
+            print(f"[ERROR] find_closest_data 失败: {e}")
+            return None
         
-        # 更新六边形层的缩放级别（用于 LOD 判断和透明度调整）
+    def find_items_in_rect(self, rect):
+        """找到框选区域内的所有数据"""
+        if not hasattr(self, 'norm_coords') or self.norm_coords is None:
+            return []
+        
+        # 简单的矩形过滤
+        x1, y1 = rect.x(), rect.y()
+        x2, y2 = x1 + rect.width(), y1 + rect.height()
+        
+        # 利用 numpy 快速过滤
+        mask = (self.norm_coords[:,0] >= x1) & (self.norm_coords[:,0] <= x2) & \
+               (self.norm_coords[:,1] >= y1) & (self.norm_coords[:,1] <= y2)
+        
+        indices = np.where(mask)[0]
+        return [self.metadata[int(i)] for i in indices if int(i) < len(self.metadata)]
+
+    def update_lod(self, zoom):
+        self.current_zoom = zoom
         if hasattr(self, 'hex_layer'):
-            self.hex_layer.set_scale(zoom_level)
+            self.hex_layer.update_lod(zoom)
+        if hasattr(self, 'scatter_layer'):
+            self.scatter_layer.update_lod(zoom)
+    
+    def highlight_indices(self, indices: List[int]):
+        """高亮指定的索引"""
+        self.highlighted_indices = set(indices)
+        if hasattr(self, 'scatter_layer'):
+            self.scatter_layer.set_highlighted_indices(self.highlighted_indices)
     
     def set_view_mode(self, mode: str):
         """设置视图模式"""

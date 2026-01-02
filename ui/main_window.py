@@ -305,11 +305,11 @@ class SonicCompassMainWindow(QMainWindow):
             )
             self.canvas_view.setScene(self.visualizer)
             
-            # 设置场景视图
-            self.canvas_view.fitInView(
-                QRectF(0, 0, 1000, 1000),
-                Qt.AspectRatioMode.KeepAspectRatio
-            )
+            # 强制相机看到整个数据
+            scene_rect = self.visualizer.itemsBoundingRect()
+            self.visualizer.setSceneRect(scene_rect)  # 更新场景边界
+            self.canvas_view.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
+            self.canvas_view.scale(0.9, 0.9)  # 稍微缩小以留出边距
             
             # 设置画布交互
             self._setup_canvas_interaction()
@@ -324,50 +324,41 @@ class SonicCompassMainWindow(QMainWindow):
             traceback.print_exc()
     
     def _setup_canvas_interaction(self):
-        """设置画布交互"""
+        """修复后的画布交互逻辑"""
         if not self.visualizer:
             return
         
-        # 通过重写场景的鼠标事件来处理点击和右键
         original_mouse_press = self.visualizer.mousePressEvent
-        original_context_menu = self.visualizer.contextMenuEvent
         
         def custom_mouse_press(event):
-            if event.button() == Qt.MouseButton.LeftButton:
-                # 调用原始处理
-                original_mouse_press(event)
-                
-                # 获取点击位置的项
-                scene_pos = event.scenePos()
-                items = self.visualizer.items(scene_pos)
-                if items:
-                    item = items[0]
-                    data = item.data(0)
-                    if data:
-                        if data.get('type') == 'point':
-                            metadata = data.get('metadata')
-                            if metadata:
-                                self.inspector.show_metadata(metadata)
-                        elif data.get('type') == 'hex':
-                            # 显示六边形内第一个点的元数据
-                            metadata_list = data.get('metadata', [])
-                            if metadata_list:
-                                self.inspector.show_metadata(metadata_list[0])
+            original_mouse_press(event)
+            
+            # 1. 获取鼠标在场景中的绝对坐标
+            scene_pos = event.scenePos()
+            
+            # 2. 调用引擎的手动命中测试
+            hit_data = self.visualizer.find_closest_data(scene_pos)
+            
+            if hit_data:
+                # 3. 命中成功，显示详情
+                self.inspector.show_metadata(hit_data['metadata'])
+                # 高亮该点
+                self.visualizer.highlight_indices([hit_data['index']])
             else:
-                original_mouse_press(event)
+                self.visualizer.clear_highlights()
         
         def custom_context_menu(event):
             """右键菜单事件"""
             scene_pos = event.scenePos()
-            items = self.visualizer.items(scene_pos)
-            if items:
-                item = items[0]
-                data = item.data(0)
-                if data:
-                    # 显示右键菜单
-                    view_pos = self.canvas_view.mapFromScene(scene_pos)
-                    global_pos = self.canvas_view.mapToGlobal(view_pos)
-                    self._show_context_menu(global_pos.x(), global_pos.y(), data)
+            hit_data = self.visualizer.find_closest_data(scene_pos)
+            if hit_data:
+                # 显示右键菜单
+                view_pos = self.canvas_view.mapFromScene(scene_pos)
+                global_pos = self.canvas_view.mapToGlobal(view_pos)
+                self._show_context_menu(global_pos.x(), global_pos.y(), {
+                    'type': 'point',
+                    'metadata': hit_data['metadata']
+                })
         
         self.visualizer.mousePressEvent = custom_mouse_press
         self.visualizer.contextMenuEvent = custom_context_menu
