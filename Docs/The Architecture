@@ -1,0 +1,212 @@
+# Roadmap
+
+[上下文对话管理](https://www.notion.so/2db68199d9af801c9a5de20f90203bb8?pvs=21)
+
+[开发白皮书old](https://www.notion.so/old-2db68199d9af8085bca4d7febdae7d19?pvs=21)
+
+## 一、 技术架构与核心选型 (The Stack)
+
+我们要构建的是一个**极致响应**的本地桌面应用，利用现有的 Soundminer 资产数据库，通过 AI 增强语义搜索。
+
+- **GUI 框架**: **PySide6 (Qt for Python)**.
+    - *变更理由*: 放弃 Electron。PySide6 能更完美地与 Python 后端（AI 模型）结合，内存占用更低，且原生支持系统级拖拽（Drag & Drop to Reaper）。
+- **核心语言**: **Python 3.x** (全栈统一).
+- 
+    
+    **AI 模型**: **BAAI/bge-m3**.
+    
+    - 
+        
+        *变更理由*: 替代 MiniLM。支持多语言（中/英），对“武侠”、“修仙”等抽象概念理解更深 。
+        
+- **可视化引擎**: **PySide6 QGraphicsScene / OpenGL**.
+    - *目标*: 复刻 Deck.gl 的视觉效果（大量点的缩放/平移），但使用 Python 原生库以保持性能。
+- **数据源 (Source of Truth)**:
+    1. 
+        
+        **Soundminer (Sonic.sqlite)**: 首选核心数据源，直接读取 metadata.
+        
+    2. 
+        
+        **UCS 映射表**: 用于标准分类.
+        
+    3. **ChromaDB / NumPy**: 用于存储 BGE-M3 生成的高维向量数据。
+
+---
+
+## 二、 交互流程 (The User Experience v2)
+
+场景 1：双模式全景 (Dual-Mode Explorer)
+
+- **模式 A：UCS 星系 (The Asset Map)**
+    - 基于 `bge-m3` 计算文件相似度。
+    - 视觉：所有文件打散分布。按 UCS 类别着色（WPN=红, AMB=绿）。
+    - 
+        
+        *逻辑*: 跨库寻找。Soundminer 里的 AK47 和本地库的 M4A1 聚在一起.
+        
+- **模式 B：库星云 (The Library Nebula)**
+    - 视觉：一个个悬浮的球体，代表 `BOOM - Magic`, `Bluezone - SciFi`。
+    - 
+        
+        *逻辑*: 物理隔离。双击球体进入，只显示该库内容，防止串台.
+        
+
+### 场景 2：语义引力与预设 (Gravity & Presets)
+
+- **操作**: 用户点击顶部 "Magic" 预设按钮。
+- **后端**: 加载 `presets.json`。
+- **视觉**:
+    - 地图自动过滤，只保留 Magic 相关声音。
+    - 出现 5 个“引力桩”（Fire, Ice, Cast, Impact...）。声音根据与这些桩的语义距离自动归类聚拢.
+
+### 场景 3：修正与对齐 (Human-in-the-loop)
+
+- **操作**: 用户发现 AI 把“卡通枪声”分到了“真实武器”区。
+- **动作**: 拖动 **"Tone/Reality"** 滑块（定义在 `axis_definitions.json`）。
+- 
+    
+    **结果**: 文件在地图上物理位移，靠近 "Cartoon" 极点。这利用了 Soundminer 的 Metadata 进行加权修正.
+    
+
+---
+
+## 三、 全局开发路线图 (The Roadmap v2)
+
+我们目前正处于 **Phase 1**。
+
+### Phase 1: 数据基建 (Data Infrastructure) —— **[CURRENT]**
+
+- **任务**:
+    - `ConfigManager`: 读取 UCS csv, Alias csv, Presets json。
+    - `Importer`: 连接 `Sonic.sqlite`，提取 FilePath, Description, CatID。
+    - `VectorEngine`: 加载 **BGE-M3**，对 Description 进行向量化（Embedding）。
+    - `Storage`: 将清洗后的数据 + 向量存入本地缓存。
+- **验收标准**:
+    - 终端运行脚本，能打印出：“已从 Soundminer 读取 5000 条数据，并完成向量化。”
+    - 输入文本 "Fire spell"，能返回语义最接近的 5 个 Soundminer 文件 ID。
+
+### Phase 2: 核心搜索与逻辑 (The Logic Core)
+
+- **任务**:
+    - 实现 `SearchEngine` 类：支持 文本->声音 (Text-to-Audio) 和 声音->声音 (Audio-to-Audio) 检索。
+    - 实现 **UCS 映射逻辑**：无 Metadata 的文件，通过 AI 归类后，自动分配 UCS CatID 。
+    - 实现 **"Gravity Stakes" 算法**：计算每个文件与 `presets.json` 中定义的“引力桩”的距离。
+- **验收标准**:
+    - 不看界面，纯代码测试：加载 "Magic" 预设，输入一个文件，程序能算出它属于 "Fire" 桩还是 "Ice" 桩。
+
+### Phase 3: 可视化 GUI (The Visualizer)
+
+- **任务**:
+    - 搭建 PySide6 主窗口。
+    - 实现 **Canvas 绘制**：用高性能方式绘制数千个点（模拟 Deck.gl 的 Hexbin 或 Scatter plot）。
+    - 实现 **缩放/平移 (LOD)** 交互。
+- **验收标准**:
+    - 窗口启动，能看到代表音频的点云。
+    - 颜色正确对应 UCS 分类（根据 `ucs_catid_list.csv`）。
+    
+    ![image.png](attachment:1a3588bf-88cf-4293-ac6f-fc5595bc27cb:image.png)
+    
+
+# Phase 3: 可视化与高性能渲染 (Visualization & Rendering)
+
+**目标:** 将枯燥的向量数据转化为“暗黑赛博风格”的交互式星图。实现“宏观蜂窝”到“微观粒子”的无缝缩放，并确保在百万级数据下依然流畅。
+
+### 1. 核心渲染引擎 (The Visualizer Engine)
+
+这是本阶段最硬核的部分，从面向对象绘图转向**批量绘图 (Batch Rendering)**。
+
+- **架构重构**:
+    - 放弃为每个点创建 Item 的旧思路。
+    - 实现 **单层渲染架构 (Single-Layer Architecture)**：`HexGridLayer` (背景层) 和 `DetailScatterLayer` (细节层)。
+- **蜂窝网格系统 (Hex Grid System) [LOD 0]**:
+    - **空间量化 (Quantization)**: 实现坐标吸附算法，将 UMAP 坐标归拢到最近的六边形中心 (q, r)。
+    - **动态聚合**: 自动计算每个蜂窝内的“主导颜色”（基于 UCS）和“密度”。
+    - **视觉风格**: 实现“玻璃质感”绘制——微弱的径向渐变填充 + 高亮细边框 + 黑色间隙。
+- **散点粒子系统 (Scatter Particle System) [LOD 1]**:
+    - **批量绘制**: 使用 `QPainter.drawPoints` 或 `drawPixmapFragments` 实现 GPU 加速绘制。
+    - **视觉风格**: 实现带微弱光晕的“星尘”效果。
+- **LOD 状态机**:
+    - 监听缩放级别 (Scale Level)。
+    - 实现 `Fade-in/Fade-out` 逻辑：放大时蜂窝淡出（或保留骨架），粒子显现。
+
+### 2. UI 框架与交互 (UI Framework & Interaction)
+
+这是用户看到的第一眼，必须严格执行设计规范。
+
+- **主窗口架构**:
+    - 实现无边框/极简风格的 `QMainWindow`。
+    - 集成 `QOpenGLWidget` 视口，开启 **GPU 硬件加速**。
+- **组件开发**:
+    - **悬浮搜索框**: 胶囊样式，半透明磨砂背景，悬浮于画布顶层。
+    - **侧边栏 (Sidebar)**: 极窄模式 (Icon Only)，实现自定义的选中态高亮。
+    - **检查器 (Inspector)**: 右侧详情面板，支持显示当前选中蜂窝或文件的信息。
+- **基础交互**:
+    - **导航**: 鼠标滚轮缩放（以鼠标为中心），右键/中键拖拽平移。
+    - **拾取 (Picking)**: 实现简单的空间索引（如 KDTree 或 Grid Map），支持点击画布获取点击位置的文件信息。
+    - **搜索反馈**: 输入关键词后，高亮匹配的点，压暗非匹配点（视觉反馈）。
+
+### 3. 数据流水线升级 (Data Pipeline Upgrade)
+
+为了支撑可视化，后端数据处理需要新增环节。
+
+- **UMAP 集成**:
+    - 在 `DataProcessor` 中集成 `umap-learn`。
+    - 实现降维逻辑：1024维 (Vectors) -> 2维 (Coordinates)。
+    - **坐标缓存**: 生成并读取 `coordinates.npy`。
+- **重绘脚本**:
+    - 编写 `rebuild_atlas.py`，用于强制刷新坐标数据。
+
+---
+
+### ✅ 验收标准 (Definition of Done)
+
+1. **启动**: 运行 `gui_main.py`，窗口在 2秒内打开，看到整齐的六边形网格。
+2. **视觉**: 界面是深色的，六边形有颜色分类（红/绿/蓝等），且有缝隙感。
+3. **LOD**: 滚动滚轮放大，六边形解体，看到具体的散点。
+4. **性能**: 在 1.3万条数据下，拖拽和平滑缩放必须保持 **60 FPS**（无肉眼可见卡顿）。
+5. **搜索**: 输入 "Gun"，地图上相关区域高亮。
+
+---
+
+### ❌ 本阶段暂不包含 (Out of Scope)
+
+- *动态轴重排动画 (Dynamic Axis Morphing)* -> **Phase 4**
+- *物理引力模式动画 (Gravity Physics)* -> **Phase 4** (Phase 3 仅做高亮，不做移动)
+- *用户打标签/修正 (User Tagging)* -> **Phase 5**
+- *拖拽到 Reaper* -> **Phase 5**
+
+### Phase 4: 交互与音频 (Interaction)
+
+- **任务**:
+    - 实现 **"Reality" 滑块**：实时更新点的坐标 。
+    - 实现 **音频波形预览**。
+    - 实现 **Drag & Drop**：从 PySide6 窗口直接拖拽文件到 Reaper 轨道。
+- **验收标准**:
+    - 拖拽功能在 Windows/Mac 上流畅运行。
+
+### Phase 5: 优化与打包 (Polish)
+
+- **任务**:
+    - 性能优化（十万级数据的加载速度）。
+    - 用户自定义 Presets 保存。
+    - 打包为 .exe。
+    1. **强力 LOD (Hexbins)**: 在宏观视角下，绝对不画点，只画几千个六边形。只有当你放大到极小的区域（比如只看几百个文件时），才把那几百个点画出来。
+    2. **视锥剔除 (Culling)**: 只渲染屏幕范围内的东西，屏幕外的 190万个点不参与运算。
+    3. **单体绘制 (The Paint Hack)**: 不要创建 200万个 Item。而是创建一个 Item，然后在它的 `paint()` 函数里用 `painter.drawPoints(points_array)` 一次性画出屏幕内的所有点。这能把性能提升 100 倍。
+    我注意到你之前的反馈里有一行关键信息：**设备：CPU（自动检测）**
+    这意味着你的电脑可能**没有使用显卡 (GPU)** 来进行计算，而是在用 CPU“硬算”。对于 AI 模型来说，CPU 就像是用算盘，而 GPU 是计算器。
+    **如果你有一张 NVIDIA 显卡 (Windows) 或 M1/M2/M3 芯片 (Mac)：**
+    • **理论加速**: 通常能达到 10~50 倍的提升。
+    • **预估速度**: 可能达到 100~300 个文件/秒。
+    • **新耗时**: 50 小时 $\rightarrow$ **2~5 小时**。
+    建议：
+    目前的开发阶段，不要跑正式库。那是 Phase 5 上线前做的事情。
+    如果你的电脑有独立显卡，我们在跑正式库之前，只需要花点时间配一下 torch 的 GPU 版本环境，就能把“2天”变成“一上午”。
+    **3. 给正式库跑索引的“安全策略”**
+    跑 2 天不仅仅是时间问题，最大的风险是中断。
+    目前的 DataProcessor 逻辑大概率是“全部跑完最后才保存”。如果跑到第 47 小时电脑死机了或者停电了，前功尽弃。
+    给未来的备忘录 (Phase 5 优化项)：
+    在跑那 190 万数据之前，我们需要对代码做一个小修改：“断点续传 (Checkpointing)”。
+    • **逻辑**: 每处理完 10,000 条，就自动保存一次 `cache_part_001.npy`。
+    • **好处**: 即使挂了，重启后能从第 10,001 条继续跑，不用从头开始。

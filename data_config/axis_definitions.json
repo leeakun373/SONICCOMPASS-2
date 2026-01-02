@@ -1,0 +1,174 @@
+{
+    "version": "1.1",
+    "encoding": "utf-8",
+    "axes": [
+  
+      {
+        "id": "tone_brightness",
+        "name": { "en": "Tone / Brightness", "zh": "音色 / 明亮度" },
+        "negative_pole": [
+          { "en": "Dark", "zh": "暗" },
+          { "en": "Low", "zh": "低频偏重" },
+          { "en": "Heavy", "zh": "厚重" },
+          { "en": "Warm", "zh": "温暖偏暗" },
+          { "en": "Muddy", "zh": "浑浊" },
+          { "en": "Dull", "zh": "不明亮" }
+        ],
+        "positive_pole": [
+          { "en": "Bright", "zh": "明亮" },
+          { "en": "High", "zh": "高频突出" },
+          { "en": "Airy", "zh": "空气感" },
+          { "en": "Crisp", "zh": "清脆" },
+          { "en": "Shiny", "zh": "明亮闪耀" },
+          { "en": "Open", "zh": "开放感" }
+        ],
+        "recommended_assets": ["Whoosh", "Ambience", "UI", "Energy", "Flyby"]
+      },
+  
+      {
+        "id": "reality_designed",
+        "name": { "en": "Realistic / Designed", "zh": "写实 / 设计感" },
+        "negative_pole": [
+          { "en": "Designed", "zh": "设计型" },
+          { "en": "Synthetic", "zh": "合成" },
+          { "en": "Processed", "zh": "处理感明显" },
+          { "en": "Layered", "zh": "叠层" },
+          { "en": "Stylized", "zh": "风格化" }
+        ],
+        "positive_pole": [
+          { "en": "Realistic", "zh": "写实" },
+          { "en": "Natural", "zh": "自然" },
+          { "en": "Organic", "zh": "有机" },
+          { "en": "Field Recording", "zh": "田野录音" },
+          { "en": "Raw", "zh": "原始" }
+        ],
+        "recommended_assets": ["Field", "Ambience", "Vehicle", "Foley", "Creature"]
+      },
+  
+      {
+        "id": "impact_intensity",
+        "name": { "en": "Impact / Force", "zh": "冲击力 / 力度" },
+        "negative_pole": [
+          { "en": "Soft", "zh": "柔" },
+          { "en": "Light", "zh": "轻" },
+          { "en": "Subtle", "zh": "细微" },
+          { "en": "Small", "zh": "小尺度" }
+        ],
+        "positive_pole": [
+          { "en": "Hard", "zh": "硬" },
+          { "en": "Heavy", "zh": "重" },
+          { "en": "Aggressive", "zh": "强烈" },
+          { "en": "Slam", "zh": "猛砸" },
+          { "en": "Impact", "zh": "冲击" }
+        ],
+        "recommended_assets": ["Impact", "Weapon", "Explosion", "Hit"]
+      },
+  
+      {
+        "id": "transient_sustain",
+        "name": { "en": "Transient / Sustain", "zh": "瞬态 / 持续" },
+        "negative_pole": [
+          { "en": "Transient", "zh": "瞬态" },
+          { "en": "Hit", "zh": "击打" },
+          { "en": "Short", "zh": "短促" },
+          { "en": "Click", "zh": "点击" }
+        ],
+        "positive_pole": [
+          { "en": "Sustain", "zh": "持续" },
+          { "en": "Long", "zh": "长音" },
+          { "en": "Drone", "zh": "嗡鸣" },
+          { "en": "Tail", "zh": "尾音明显" }
+        ],
+        "recommended_assets": ["Whoosh", "Drone", "Ambience", "UI"]
+      },
+  
+      {
+        "id": "tonal_noisy",
+        "name": { "en": "Tonal / Noisy", "zh": "音高感 / 噪声感" },
+        "negative_pole": [
+          { "en": "Tonal", "zh": "有音高" },
+          { "en": "Pitched", "zh": "可定音高" },
+          { "en": "Harmonic", "zh": "谐波" }
+        ],
+        "positive_pole": [
+          { "en": "Noisy", "zh": "噪声" },
+          { "en": "Broadband", "zh": "宽频" },
+          { "en": "Textural", "zh": "纹理噪声" },
+          { "en": "Atonal", "zh": "无调性" }
+        ],
+        "recommended_assets": ["Magic", "Energy", "UI", "Sci-Fi"]
+      },
+  
+      {
+        "id": "material_soft_hard",
+        "name": { "en": "Material Soft / Hard", "zh": "材质软硬" },
+        "negative_pole": [
+          { "en": "Soft Material", "zh": "软质" },
+          { "en": "Cloth", "zh": "布料" },
+          { "en": "Rubber", "zh": "橡胶" },
+          { "en": "Flesh", "zh": "肉感" }
+        ],
+        "positive_pole": [
+          { "en": "Hard Material", "zh": "硬质" },
+          { "en": "Metallic", "zh": "金属" },
+          { "en": "Glass", "zh": "玻璃" },
+          { "en": "Stone", "zh": "石材" }
+        ],
+        "recommended_assets": ["Foley", "Props", "Impact", "Weapon"]
+      },
+  
+      {
+        "id": "motion_type",
+        "name": { "en": "Motion Type", "zh": "运动类型" },
+        "negative_pole": [
+          { "en": "Organic Motion", "zh": "有机运动" },
+          { "en": "Fluid", "zh": "流体" },
+          { "en": "Irregular", "zh": "不规则" }
+        ],
+        "positive_pole": [
+          { "en": "Mechanical Motion", "zh": "机械运动" },
+          { "en": "Cyclic", "zh": "循环" },
+          { "en": "Motorized", "zh": "电机驱动" },
+          { "en": "Rhythmic", "zh": "节律" }
+        ],
+        "recommended_assets": ["Mechanical", "Robot", "Vehicle", "Machine"]
+      },
+  
+      {
+        "id": "space_distance",
+        "name": { "en": "Space / Distance", "zh": "空间 / 距离" },
+        "negative_pole": [
+          { "en": "Close", "zh": "近" },
+          { "en": "Dry", "zh": "干" },
+          { "en": "Interior", "zh": "室内" },
+          { "en": "Close Mic", "zh": "近距拾音" }
+        ],
+        "positive_pole": [
+          { "en": "Distant", "zh": "远" },
+          { "en": "Wide", "zh": "宽阔" },
+          { "en": "Exterior", "zh": "室外" },
+          { "en": "Reverberant", "zh": "混响丰富" }
+        ],
+        "recommended_assets": ["Ambience", "Vehicle", "Flyby", "Environment"]
+      },
+  
+      {
+        "id": "functional_expressive",
+        "name": { "en": "Functional / Expressive", "zh": "功能性 / 表现性" },
+        "negative_pole": [
+          { "en": "Functional", "zh": "功能性" },
+          { "en": "UI", "zh": "界面反馈" },
+          { "en": "Neutral", "zh": "中性" }
+        ],
+        "positive_pole": [
+          { "en": "Expressive", "zh": "表现性" },
+          { "en": "Cinematic", "zh": "电影化" },
+          { "en": "Dramatic", "zh": "戏剧性" },
+          { "en": "Emotional", "zh": "情绪化" }
+        ],
+        "recommended_assets": ["UI", "Cinematic", "Trailer", "Cutscene"]
+      }
+  
+    ]
+  }
+  
