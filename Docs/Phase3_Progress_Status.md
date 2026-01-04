@@ -1024,3 +1024,98 @@ ui/
 **状态**: 数据源切换完成，GPU 加速已启用，缩放问题已修复，UMAP 内存问题待解决  
 **更新时间**: 2025-01-04
 
+## 最新更新（2025-01-04 - 关键修复：数据分类、渲染顺序、UI初始化）
+
+### 数据分类系统重大修复 ⭐ NEW
+
+1. **强规则层（Hard Rule Layer）实现**
+   - 在 AI 仲裁前添加 Level 0 强规则层
+   - 关键词直接锁定 Category Code（如 'WPN', 'SCI', 'MAG'）
+   - 解决 "Future Weapon" -> "Aircraft" 等错误分类问题
+   - 规则覆盖：武器、科幻、魔法、水、天气、环境、脚步声、UI、航空器等
+
+2. **Category Code 标准化**
+   - 确保存入数据库的是 Code（如 'WPN'）而不是 Name（如 'WEAPONS'）
+   - 修复 `_extract_category()` 方法，所有路径都返回 Code
+   - 修复 `get_catid_info()` 方法，增强查表能力
+   - 解决"全红"显示问题的根本原因
+
+3. **UCS Manager 增强**
+   - `get_catid_info()` 支持多种查找方式：
+     - 优先使用 `catid_lookup` 表
+     - 回退到 `catid_to_category` 表
+     - 如果格式像 UCS（如 "WPNGun"），盲猜前三位是 Code
+   - 确保始终返回 `category_code` 字段
+
+### 可视化渲染修复 ⭐ NEW
+
+1. **渲染顺序修复**
+   - 修复 `set_data()` 方法：先归一化坐标，再构建场景，最后适配视图
+   - 修复 `_build_scene_data()` 方法：接受 `norm_coords` 参数，使用传入参数而非 `self.norm_coords`
+   - 确保坐标计算和场景构建的顺序正确
+
+2. **UI 初始化修复**
+   - 修复 `SonicUniverse.__init__` 中 `_build_scene_data()` 调用缺少参数的问题
+   - 添加默认参数 `norm_coords=None` 作为 fallback
+   - 修复 `_rebuild_layers()` 中的调用
+   - 添加异常日志输出，避免静默失败
+
+3. **调试输出增强**
+   - 添加详细的调试日志（`[DEBUG] build:` 前缀）
+   - 每个关键步骤都有进度输出
+   - 便于定位卡住的位置
+
+### 自动质心生成 ⭐ NEW
+
+1. **rebuild_atlas.py 增强**
+   - 自动检查并生成 Platinum Centroids（如果缓存不存在）
+   - 使用 `importlib` 动态导入，避免模块级初始化卡住
+   - 添加详细的进度输出和错误处理
+
+2. **generate_platinum_centroids.py 优化**
+   - 移除模块级的 `sys.stdout` 修改（移到函数内部）
+   - 延迟导入 `VectorEngine` 和 `CategoryColorMapper`
+   - 避免在导入时触发模型加载
+
+### 技术细节
+
+**强规则层实现**:
+- STRONG_RULES 字典：关键词 -> Category Code 映射
+- 在 Level 1（显式检查）之前执行
+- 直接返回 Code，不给 AI 瞎猜的机会
+
+**Category Code 标准化流程**:
+- Level 0: 强规则层（关键词匹配）
+- Level 1: 显式检查（Metadata，过滤弱分类）
+- Level 3: AI 向量仲裁（确保返回 Code）
+- 所有路径最终都返回 Category Code，不是 Name
+
+**渲染顺序修复**:
+- `set_data()`: 归一化 -> 构建场景 -> 适配视图
+- `_build_scene_data()`: 使用传入参数，不依赖 `self.norm_coords`
+- 确保坐标计算完成后再构建场景
+
+### 修复的问题
+
+- ✅ 修复数据分类错误（强规则层 + Code 标准化）
+- ✅ 修复"全红"显示问题（确保存储和显示都使用 Code）
+- ✅ 修复 UI 初始化卡住（参数传递 + 默认值）
+- ✅ 修复渲染顺序问题（坐标归一化在场景构建前）
+- ✅ 修复静默失败问题（添加异常日志）
+- ✅ 修复导入卡住问题（延迟导入 + 动态导入）
+
+### 下一步计划
+
+1. **性能优化**
+   - 优化 `_generate_labels()` 方法（当前已临时禁用）
+   - 测试大规模数据渲染性能
+   - 优化标签生成算法
+
+2. **功能完善**
+   - 重新启用标签生成（优化后）
+   - 测试强规则层的分类准确性
+   - 验证 Code 标准化效果
+
+**状态**: 关键修复完成，数据分类系统增强，渲染顺序修复，UI初始化修复  
+**更新时间**: 2025-01-04（关键修复）
+

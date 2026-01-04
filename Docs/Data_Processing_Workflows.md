@@ -130,10 +130,17 @@ python recalculate_umap.py  # 快速迭代
 
 ### UMAP参数（当前设置）
 
-- `n_neighbors=30`: 增强全局结构，形成紧密大陆
-- `min_dist=0.01`: 允许紧密堆积，减少蜂窝间缝隙
-- `target_weight=0.7`: 70%依赖分类标签，30%语义漂移
+- `n_neighbors=50`: 增强全局结构，吸附更多周围的点
+- `min_dist=0.001`: 允许极度紧密堆积，形成紧凑大陆
+- `spread=0.5`: 降低扩散，让群岛聚拢
+- `target_weight=0.95`: 95%依赖分类标签，实施铁腕统治
 - `target_metric='categorical'`: 适用于离散分类标签
+
+### 自动质心生成
+
+- `rebuild_atlas.py` 会自动检查并生成 Platinum Centroids（如果缓存不存在）
+- 质心文件：`cache/platinum_centroids_754.pkl`
+- 包含 753 个标准 UCS CatID 定义向量
 
 ### 坐标归一化
 
