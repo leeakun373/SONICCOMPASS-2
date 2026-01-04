@@ -124,9 +124,9 @@ class CanvasView(QGraphicsView):
         
         new_zoom = current_zoom * scale_factor
         
-        # 简化的缩放限制：只设置合理的边界，不阻止正常缩放
+        # 计算动态最小缩放级别
+        min_zoom = self._calculate_min_zoom()
         max_zoom = 20.0  # 允许更大的放大
-        min_zoom = 0.01  # 允许更小的缩小
         
         # 只在极端情况下限制缩放
         if new_zoom < min_zoom:

@@ -267,7 +267,7 @@ class SonicCompassMainWindow(QMainWindow):
             ucs_manager.load_all()
             
             importer = SoundminerImporter(
-                db_path="./test_assets/Sonic.sqlite",
+                db_path="./test_assets/Nas_SoundLibrary.sqlite",
                 ucs_manager=ucs_manager
             )
             
@@ -301,15 +301,13 @@ class SonicCompassMainWindow(QMainWindow):
                 embeddings,
                 coords_2d=coords_2d,
                 hex_size=50.0,
-                search_core=self.search_core  # 传入 search_core 用于 Scatter 模式
+                search_core=self.search_core,  # 传入 search_core 用于 Scatter 模式
+                ucs_manager=ucs_manager  # 传入 ucs_manager 用于标签生成
             )
             self.canvas_view.setScene(self.visualizer)
             
-            # 强制相机看到整个数据
-            scene_rect = self.visualizer.itemsBoundingRect()
-            self.visualizer.setSceneRect(scene_rect)  # 更新场景边界
-            
             # 使用 fit_scene_to_view 方法适配视图（包含 10% padding）
+            # 这个方法内部会处理场景矩形和视图适配
             self.canvas_view.fit_scene_to_view()
             
             # 设置画布交互
@@ -341,10 +339,20 @@ class SonicCompassMainWindow(QMainWindow):
             hit_data = self.visualizer.find_closest_data(scene_pos)
             
             if hit_data:
-                # 3. 命中成功，显示详情
-                self.inspector.show_metadata(hit_data['metadata'])
-                # 高亮该点
-                self.visualizer.highlight_indices([hit_data['index']])
+                # 3. 根据返回类型显示不同内容
+                if hit_data.get('type') == 'hex':
+                    # LOD < 2: 显示六边形内所有数据
+                    self.inspector.show_metadata_list(
+                        hit_data['metadata_list'],
+                        hex_key=hit_data['hex_key']
+                    )
+                    # 高亮该六边形内的所有点
+                    self.visualizer.highlight_indices(hit_data['indices'])
+                elif hit_data.get('type') == 'point':
+                    # LOD >= 2: 显示单个文件详情
+                    self.inspector.show_metadata(hit_data['metadata'])
+                    # 高亮该点
+                    self.visualizer.highlight_indices([hit_data['index']])
             else:
                 self.visualizer.clear_highlights()
         
@@ -352,8 +360,8 @@ class SonicCompassMainWindow(QMainWindow):
             """右键菜单事件"""
             scene_pos = event.scenePos()
             hit_data = self.visualizer.find_closest_data(scene_pos)
-            if hit_data:
-                # 显示右键菜单
+            if hit_data and hit_data.get('type') == 'point':
+                # 只在LOD >= 2时显示右键菜单（单个文件）
                 view_pos = self.canvas_view.mapFromScene(scene_pos)
                 global_pos = self.canvas_view.mapToGlobal(view_pos)
                 self._show_context_menu(global_pos.x(), global_pos.y(), {

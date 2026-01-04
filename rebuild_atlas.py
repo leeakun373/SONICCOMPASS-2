@@ -35,7 +35,7 @@ def rebuild():
     print("=" * 60)
     
     # 1. 配置路径
-    DB_PATH = "./test_assets/Sonic.sqlite"
+    DB_PATH = "./test_assets/Nas_SoundLibrary.sqlite"
     CACHE_DIR = "./cache"
     
     if not Path(DB_PATH).exists():

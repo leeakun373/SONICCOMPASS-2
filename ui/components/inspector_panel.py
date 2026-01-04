@@ -116,4 +116,63 @@ class InspectorPanel(QScrollArea):
             self.layout.addWidget(keywords_label)
         
         self.layout.addStretch()
+    
+    def show_metadata_list(self, metadata_list: List[Dict], hex_key=None):
+        """显示六边形内所有数据的列表"""
+        self.clear()
+        
+        title = QLabel("INSPECTOR")
+        title_font = QFont("Segoe UI", 16, QFont.Weight.Bold)
+        title_font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
+        title.setFont(title_font)
+        title.setStyleSheet("color: #5E6AD2; text-transform: uppercase;")
+        self.layout.addWidget(title)
+        
+        # 显示六边形信息
+        hex_info = QLabel(f"<b>Selected Hex:</b> {len(metadata_list)} items")
+        hex_info.setWordWrap(True)
+        hex_info.setStyleSheet("color: #8B9FFF; font-size: 14px; margin-bottom: 10px;")
+        self.layout.addWidget(hex_info)
+        
+        if hex_key:
+            hex_coord = QLabel(f"<span style='color: #5F636E; font-size: 11px;'>({hex_key[0]}, {hex_key[1]})</span>")
+            self.layout.addWidget(hex_coord)
+        
+        # 显示文件列表
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet("background-color: #2A2D35; border: none;")
+        self.layout.addWidget(separator)
+        
+        # 限制显示数量，避免列表过长
+        max_display = 50
+        display_list = metadata_list[:max_display]
+        
+        for i, metadata in enumerate(display_list, 1):
+            item_frame = QFrame()
+            item_frame.setStyleSheet("background-color: #1C1E24; border-radius: 4px; padding: 8px; margin-bottom: 8px;")
+            item_layout = QVBoxLayout(item_frame)
+            item_layout.setContentsMargins(10, 8, 10, 8)
+            item_layout.setSpacing(5)
+            
+            # 文件名或路径
+            filename = metadata.get('filename') or metadata.get('filepath', 'Unknown')
+            if filename:
+                filename_label = QLabel(f"<b>{i}.</b> {filename}")
+                filename_label.setWordWrap(True)
+                filename_label.setStyleSheet("color: #E1E4E8; font-size: 12px;")
+                item_layout.addWidget(filename_label)
+            
+            # 分类信息
+            if metadata.get('category'):
+                cat_label = QLabel(f"<span style='color: #8B9FFF; font-size: 11px;'>{metadata['category']}</span>")
+                item_layout.addWidget(cat_label)
+            
+            self.layout.addWidget(item_frame)
+        
+        if len(metadata_list) > max_display:
+            more_label = QLabel(f"<span style='color: #5F636E; font-size: 11px;'>... and {len(metadata_list) - max_display} more items</span>")
+            self.layout.addWidget(more_label)
+        
+        self.layout.addStretch()
 

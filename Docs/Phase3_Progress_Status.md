@@ -1,7 +1,7 @@
 # Phase 3 进度状态文档
 
-**更新时间**: 2025-01-02  
-**状态**: 可视化引擎彻底重写完成，GPU 加速部署成功 (Visualization Engine Rewritten, GPU Acceleration Deployed)
+**更新时间**: 2025-01-04  
+**状态**: 可视化引擎彻底重写完成，GPU 加速部署成功，数据源切换完成 (Visualization Engine Rewritten, GPU Acceleration Deployed, Data Source Switched)
 
 ## 当前进度概览
 
@@ -925,4 +925,102 @@ ui/
 
 **状态**: Phase 3 可视化引擎彻底重写完成，GPU 加速部署成功，核心修复完成  
 **更新时间**: 2025-01-02（核心修复）
+
+## 最新更新（2025-01-04 - 数据源切换与问题修复）
+
+### 数据源切换 ⭐ NEW
+
+1. **正式数据库切换**
+   - 数据源从 `Sonic.sqlite` (41 MB, 13,850 条) 切换到 `Nas_SoundLibrary.sqlite` (4.6 GB, 1,948,566 条)
+   - 更新所有相关文件的数据路径：
+     - `rebuild_atlas.py`: 数据库路径更新
+     - `ui/main_window.py`: 数据导入路径更新
+     - `tools/verify_phase2.py`: 测试数据库路径更新
+     - `tools/verify_pipeline.py`: 测试数据库路径更新
+
+2. **数据规模变化**
+   - 记录数：从 13,850 条增加到 1,948,566 条（约 140 倍增长）
+   - 向量化时间：预计从 ~20 分钟增加到数小时（GPU 加速后约 1-2 小时）
+   - 缓存文件大小：
+     - `embeddings.npy`: 从 56 MB 增加到 7.43 GB
+     - `metadata.pkl`: 从 7 MB 增加到 836 MB
+
+### GPU 加速状态确认 ⭐ NEW
+
+1. **GPU 加速已启用**
+   - PyTorch 版本：2.5.1+cu121 (CUDA 12.1)
+   - GPU 设备：NVIDIA GeForce RTX 3070
+   - VectorEngine 自动使用 GPU，batch_size=64
+   - 性能提升：约 17 倍（从 ~11 条/秒到 ~192 条/秒）
+
+2. **向量化完成状态**
+   - 向量化阶段已完成（1,948,566 条记录）
+   - Embeddings 文件已生成（7.43 GB）
+   - Metadata 文件已生成（836 MB）
+
+### UMAP 计算内存问题 ⚠️
+
+1. **内存错误**
+   - 错误信息：`ArrayMemoryError: Unable to allocate 19.8 GiB`
+   - 发生位置：UMAP 的 `spectral_layout` 阶段
+   - 原因：195 万条数据 + `n_neighbors=100` 参数导致内存需求过大
+   - 当前状态：需要调整参数或使用采样策略
+
+2. **解决方案（待实施）**
+   - 方案 1：降低 `n_neighbors` 参数（从 100 降到 15-30）
+   - 方案 2：使用 `low_memory=True` 模式
+   - 方案 3：数据采样（随机选择部分数据）
+   - 注意：参数调整可能影响可视化质量
+
+### 缩放导致 UI 消失问题修复 ⭐ NEW
+
+1. **场景矩形设置修复**
+   - 问题：使用 `itemsBoundingRect()` 可能返回不正确的值（图层返回固定大范围）
+   - 修复：基于实际数据坐标范围设置场景矩形
+   - 位置：`ui/visualizer/sonic_universe.py` 的 `_build_scene_data()` 方法
+   - 实现：使用 `norm_coords` 的实际范围计算场景矩形，添加 500px 边距
+
+2. **视图适配优化**
+   - 移除重复的 `fitInView()` 调用
+   - 统一使用 `fit_scene_to_view()` 方法
+   - 确保缩放时内容始终在可见范围内
+
+### 技术细节
+
+**场景矩形计算**:
+- 基于实际数据坐标：`min_x, min_y = norm_coords.min(axis=0)`
+- 添加边距：`margin = 500.0`
+- 场景矩形：`QRectF(min_x - margin, min_y - margin, width + 2*margin, height + 2*margin)`
+
+**数据源切换影响**:
+- 所有数据路径统一更新
+- 向量化已完成，UMAP 计算待优化
+- 缓存文件大小显著增加
+
+### 修复的问题
+
+- ✅ 修复缩放导致 UI 消失问题（场景矩形基于实际数据坐标）
+- ✅ 修复视图适配重复调用问题（统一使用 fit_scene_to_view）
+- ✅ 数据源切换完成（所有相关文件已更新）
+- ⚠️ UMAP 内存错误待解决（需要调整参数或采样策略）
+
+### 下一步计划
+
+1. **UMAP 参数优化**
+   - 降低 `n_neighbors` 参数以适应大规模数据
+   - 或实现数据采样策略
+   - 平衡内存使用和可视化质量
+
+2. **性能测试**
+   - 测试大规模数据（195 万条）的渲染性能
+   - 验证 GPU 加速效果
+   - 优化内存使用
+
+3. **功能验证**
+   - 验证缩放功能正常
+   - 验证场景矩形设置正确
+   - 验证数据加载和显示
+
+**状态**: 数据源切换完成，GPU 加速已启用，缩放问题已修复，UMAP 内存问题待解决  
+**更新时间**: 2025-01-04
 

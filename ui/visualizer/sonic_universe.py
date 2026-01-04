@@ -20,6 +20,11 @@ try:
 except ImportError:
     CategoryColorMapper = None
 
+try:
+    from core.ucs_manager import UCSManager
+except ImportError:
+    UCSManager = None
+
 # 尝试导入 KDTree 用于极速查询
 try:
     from scipy.spatial import cKDTree
@@ -49,9 +54,10 @@ class HexGridLayer(QGraphicsItem):
                 print(f"[WARNING] 初始化 CategoryColorMapper 失败: {e}")
         return cls._color_mapper
     
-    def __init__(self, size):
+    def __init__(self, size, ucs_manager=None):
         super().__init__()
         self.hex_size = size
+        self.ucs_manager = ucs_manager  # UCSManager 实例
         self.grid_data = {}  # (q, r) -> [indices]
         self.metadata = []
         self.coords = None
@@ -70,9 +76,59 @@ class HexGridLayer(QGraphicsItem):
         # 预计算标签
         self._generate_labels(metadata)
         
+    def _get_hex_neighbors(self, q, r):
+        """获取六边形的6个相邻坐标"""
+        # 六边形6个方向的偏移量（轴向坐标）
+        directions = [
+            (1, 0),   # 右
+            (1, -1),  # 右上
+            (0, -1),  # 左上
+            (-1, 0),  # 左
+            (-1, 1),  # 左下
+            (0, 1)    # 右下
+        ]
+        return [(q + dq, r + dr) for dq, dr in directions]
+    
+    def _find_connected_components(self, category_positions):
+        """
+        使用BFS找到连通域（岛屿）
+        返回: [(category, [(q, r), ...]), ...] 每个连通域及其六边形坐标列表
+        """
+        visited = set()
+        components = []
+        
+        for category, positions in category_positions.items():
+            # 为该类别建立位置集合以便快速查找
+            position_set = set(positions)
+            
+            # 对每个未访问的位置进行BFS
+            for start_pos in positions:
+                if start_pos in visited:
+                    continue
+                
+                # BFS遍历连通域
+                component = []
+                queue = [start_pos]
+                visited.add(start_pos)
+                
+                while queue:
+                    current_q, current_r = queue.pop(0)
+                    component.append((current_q, current_r))
+                    
+                    # 检查所有邻居
+                    for neighbor in self._get_hex_neighbors(current_q, current_r):
+                        if neighbor in position_set and neighbor not in visited:
+                            visited.add(neighbor)
+                            queue.append(neighbor)
+                
+                if component:
+                    components.append((category, component))
+        
+        return components
+    
     def _generate_labels(self, metadata):
         """生成标签：LOD 0 大类标签和 LOD 1 子类标签"""
-        # 生成 LOD 0 大类标签（聚类质心）
+        # 生成 LOD 0 大类标签（连通域聚类）
         self.category_labels = []
         category_positions = {}  # category -> [(q, r), ...]
         
@@ -93,7 +149,7 @@ class HexGridLayer(QGraphicsItem):
             meta = metadata[first_idx]
             cat_id = meta.get('category', '')
             
-            # LOD 0: 收集大类位置用于聚类
+            # LOD 0: 收集大类位置用于连通域聚类
             if mapper:
                 category = mapper.get_category_from_catid(cat_id)
                 if category:
@@ -101,33 +157,41 @@ class HexGridLayer(QGraphicsItem):
                         category_positions[category] = []
                     category_positions[category].append((q, r))
             
-            # LOD 1: 生成子类标签（统计该六边形内所有点的 keywords 或 subcategory）
+            # LOD 1: 生成子类标签（强制使用 UCS subcategory）
             center = self._hex_to_pixel(q, r)
-            all_keywords = []
+            all_subcategories = []
             
-            # 收集该六边形内所有点的 keywords 或 subcategory
+            # 收集该六边形内所有点的 subcategory
             for idx in indices:
                 if idx >= len(metadata):
                     continue
                 item_meta = metadata[idx]
                 
-                # 优先使用 keywords（可能是列表或字符串）
-                keywords = item_meta.get('keywords', [])
-                if isinstance(keywords, list):
-                    all_keywords.extend([str(k) for k in keywords if k])
-                elif keywords:
-                    all_keywords.append(str(keywords))
+                # 优先使用 metadata 中的 subcategory
+                subcat = item_meta.get('subcategory', '')
                 
-                # 如果没有 keywords，尝试 subcategory
-                if not keywords:
-                    subcat = item_meta.get('subcategory', '')
-                    if subcat:
-                        all_keywords.append(str(subcat))
+                # 如果 subcategory 为空，使用 UCSManager 解析 CatID
+                if not subcat:
+                    item_cat_id = item_meta.get('category', '')
+                    if item_cat_id and self.ucs_manager:
+                        ucs_category = self.ucs_manager.get_category_by_catid(item_cat_id)
+                        if ucs_category:
+                            subcat = ucs_category.subcategory
+                
+                # 如果仍然为空，尝试从 CategoryColorMapper 获取
+                if not subcat and item_cat_id and mapper:
+                    # 尝试通过 CategoryColorMapper 获取（作为回退）
+                    category = mapper.get_category_from_catid(item_cat_id)
+                    if category:
+                        subcat = category  # 如果没有 subcategory，使用 category 作为回退
+                
+                if subcat:
+                    all_subcategories.append(str(subcat))
             
-            # 使用 Counter 统计最频繁的词（Mode）
-            if all_keywords:
-                counter = Counter(all_keywords)
-                most_common_text = counter.most_common(1)[0][0]
+            # 使用 Counter 统计最频繁的 SubCategory (Mode)
+            if all_subcategories:
+                counter = Counter(all_subcategories)
+                most_common_subcat = counter.most_common(1)[0][0]
                 
                 # 获取该六边形主导分类的颜色
                 label_color = None
@@ -135,21 +199,38 @@ class HexGridLayer(QGraphicsItem):
                     label_color = mapper.get_color_for_catid(cat_id)
                 
                 self.subcategory_labels[(q, r)] = {
-                    'text': most_common_text[:15],  # 限制长度
+                    'text': most_common_subcat[:15],  # 限制长度
                     'pos': center,
                     'color': label_color
                 }
         
-        # 为每个大类计算质心位置（LOD 0）
-        for category, positions in category_positions.items():
-            if len(positions) >= 1:  # 显示所有类别（降低阈值）
-                centers = [self._hex_to_pixel(q, r) for q, r in positions]
-                centroid_x = sum(c.x() for c in centers) / len(centers)
-                centroid_y = sum(c.y() for c in centers) / len(centers)
-                self.category_labels.append({
-                    'text': category.upper(),
-                    'pos': QPointF(centroid_x, centroid_y)
-                })
+        # LOD 0: 使用连通域聚类算法为每个"岛屿"生成标签
+        if category_positions:
+            components = self._find_connected_components(category_positions)
+            
+            for category, component_positions in components:
+                if len(component_positions) >= 1:
+                    # 计算该连通域的几何中心
+                    centers = [self._hex_to_pixel(q, r) for q, r in component_positions]
+                    centroid_x = sum(c.x() for c in centers) / len(centers)
+                    centroid_y = sum(c.y() for c in centers) / len(centers)
+                    
+                    # 获取该大类的颜色
+                    label_color = None
+                    if mapper:
+                        # 从组件中获取第一个六边形的CatID来确定颜色
+                        first_hex = component_positions[0]
+                        if first_hex in self.grid_data:
+                            first_idx = self.grid_data[first_hex][0]
+                            if first_idx < len(metadata):
+                                cat_id = metadata[first_idx].get('category', '')
+                                label_color = mapper.get_color_for_catid(cat_id)
+                    
+                    self.category_labels.append({
+                        'text': category.upper(),
+                        'pos': QPointF(centroid_x, centroid_y),
+                        'color': label_color
+                    })
     
     def boundingRect(self):
         # 估算一个超大范围即可，视口裁剪由 paint 处理
@@ -171,8 +252,16 @@ class HexGridLayer(QGraphicsItem):
         for (q, r), indices in self.grid_data.items():
             center = self._hex_to_pixel(q, r)
             
-            # 粗略裁剪检查
-            if not clip_rect.contains(center):
+            # 改进的裁剪检查：检查六边形是否与裁剪区域相交
+            # 考虑六边形的尺寸，而不是只检查中心点
+            hex_radius = self.hex_size * 0.92  # 使用 gap_ratio 后的实际尺寸
+            hex_rect = QRectF(
+                center.x() - hex_radius,
+                center.y() - hex_radius,
+                hex_radius * 2,
+                hex_radius * 2
+            )
+            if not clip_rect.intersects(hex_rect):
                 continue
                 
             # 获取颜色（基于第一个点的分类）- 统一使用 CategoryColorMapper
@@ -184,28 +273,19 @@ class HexGridLayer(QGraphicsItem):
                     mapper = self._get_color_mapper()
                     if mapper:
                         color = mapper.get_color_for_catid(cat_id)
-                        # 根据 LOD 调整透明度
-                        if lod == 0:
-                            color.setAlpha(50)  # LOD 0: 填充 50
-                        else:
-                            color.setAlpha(150)  # LOD 1: 正常透明度
+                        # 根据 LOD 调整透明度（在_draw_single_hex中会再次设置，这里只是设置基础颜色）
+                        # 不在这里设置Alpha，让_draw_single_hex统一处理
             
             # 如果没有映射器或映射失败，使用默认灰色（CategoryColorMapper 也会返回灰色）
             if color is None:
                 mapper = self._get_color_mapper()
                 if mapper:
                     color = mapper.get_color_for_catid(None)  # None 会返回灰色
-                    if lod == 0:
-                        color.setAlpha(50)
-                    else:
-                        color.setAlpha(150)
+                    # 不在这里设置Alpha，让_draw_single_hex统一处理
                 else:
                     # 最后的回退（如果没有映射器）
                     color = QColor('#6B7280')  # 灰色
-                    if lod == 0:
-                        color.setAlpha(50)
-                    else:
-                        color.setAlpha(150)
+                    # 不在这里设置Alpha，让_draw_single_hex统一处理
                 
             # 绘制六边形
             self._draw_single_hex(painter, center, len(indices), gap_ratio, color, lod)
@@ -228,11 +308,11 @@ class HexGridLayer(QGraphicsItem):
         
         # 根据 LOD 设置填充和描边样式（所有颜色都来自 CategoryColorMapper）
         if lod == 0:
-            # LOD 0: 填充透明度 50，描边透明度 220
+            # LOD 0: 填充透明度 60，描边透明度 220
             fill_color = QColor(color)
-            fill_color.setAlpha(50)
+            fill_color.setAlpha(60)  # 填充 Alpha=60
             border_color = QColor(color)
-            border_color.setAlpha(220)
+            border_color.setAlpha(220)  # 描边 Alpha=220
             painter.setPen(QPen(border_color, 1.5))
             painter.setBrush(QBrush(fill_color))
         else:
@@ -272,13 +352,20 @@ class HexGridLayer(QGraphicsItem):
             text_x = label['pos'].x() - text_rect.width() / 2
             text_y = label['pos'].y() + text_rect.height() / 2
             
-            # 绘制阴影
-            shadow_color = QColor(0, 0, 0, 180)
-            painter.setPen(shadow_color)
-            painter.drawStaticText(int(text_x + 2), int(text_y + 2), static_text)
+            # 绘制半透明黑色背景框
+            bg_rect = QRectF(text_x - 4, text_y - text_rect.height() - 2, 
+                            text_rect.width() + 8, text_rect.height() + 4)
+            bg_color = QColor(0, 0, 0, 180)
+            painter.fillRect(bg_rect, bg_color)
             
-            # 绘制白色文字
-            text_color = QColor(255, 255, 255, 255)
+            # 绘制文字：使用CategoryColorMapper获取的颜色，如果没有则使用白色
+            label_color = label.get('color')
+            if label_color:
+                text_color = QColor(label_color)
+                text_color.setAlpha(255)  # 文字Alpha=255
+            else:
+                text_color = QColor(255, 255, 255, 255)
+            
             painter.setPen(text_color)
             painter.drawStaticText(int(text_x), int(text_y), static_text)
     
@@ -317,6 +404,10 @@ class HexGridLayer(QGraphicsItem):
         
     def update_lod(self, zoom):
         """更新 LOD 层级"""
+        # 确保 zoom 值有效
+        if zoom <= 0:
+            zoom = 1.0
+        
         self.current_zoom = zoom
         
         if zoom < 0.6:
@@ -416,12 +507,13 @@ class DetailScatterLayer(QGraphicsItem):
 class SonicUniverse(QGraphicsScene):
     """Sonic Universe 可视化场景 - 修复版"""
     
-    def __init__(self, metadata, embeddings, coords_2d=None, hex_size=50.0, search_core=None, parent=None):
+    def __init__(self, metadata, embeddings, coords_2d=None, hex_size=50.0, search_core=None, ucs_manager=None, parent=None):
         super().__init__(parent)
         self.metadata = metadata
         self.embeddings = embeddings
         self.hex_size = float(hex_size)
         self.search_core = search_core
+        self.ucs_manager = ucs_manager  # UCSManager 实例
         
         # 坐标处理
         self.coords_2d = coords_2d
@@ -437,7 +529,7 @@ class SonicUniverse(QGraphicsScene):
         self.current_display_coords = None  # 最终的显示坐标（经过规整化）
 
         # 核心数据结构
-        self.hex_layer = HexGridLayer(self.hex_size)
+        self.hex_layer = HexGridLayer(self.hex_size, ucs_manager=self.ucs_manager)
         self.scatter_layer = DetailScatterLayer()
         self.addItem(self.hex_layer)
         self.addItem(self.scatter_layer)
@@ -461,14 +553,14 @@ class SonicUniverse(QGraphicsScene):
         self._build_scene_data()
     
     def _normalize_coordinates(self):
-        """归一化坐标到紧凑画布范围（3500x3500）"""
+        """归一化坐标到紧凑画布范围（3000x3000）"""
         if self.coords_2d is None or len(self.coords_2d) == 0:
             return
         
-        # 1. 坐标归一化到紧凑场景 (3500x3500) - 减少数据分散，让蜂窝更密集
+        # 1. 坐标归一化到紧凑场景 (3000x3000) - 减少数据分散，让蜂窝更密集
         min_v = np.min(self.coords_2d, axis=0)
         max_v = np.max(self.coords_2d, axis=0)
-        scale = 3500.0 / (np.max(max_v - min_v) + 1e-5)
+        scale = 3000.0 / (np.max(max_v - min_v) + 1e-5)
         self.norm_coords = (self.coords_2d - min_v) * scale
     
     def _constrain_points_to_hex(self, coords):
@@ -502,28 +594,30 @@ class SonicUniverse(QGraphicsScene):
             hex_center = self._hex_to_pixel(q, r)
             center_x, center_y = hex_center.x(), hex_center.y()
             
-            # 如果只有一个点，直接放在中心
-            if len(point_indices) == 1:
-                idx = point_indices[0]
+            # 按索引排序保证确定性
+            sorted_indices = sorted(point_indices)
+            total_points = len(sorted_indices)
+            
+            if total_points == 1:
+                # 如果只有一个点，直接放在中心
+                idx = sorted_indices[0]
                 constrained_coords[idx] = [center_x, center_y]
             else:
                 # 多个点：使用向日葵螺旋布局
-                # 按索引排序保证确定性
-                sorted_indices = sorted(point_indices)
-                total_points = len(sorted_indices)
+                # 计算缩放系数 c，确保最大半径 < hex_size * 0.9
+                # 对于最后一个点 i = total_points - 1，r = c * sqrt(i) < max_radius
+                # 所以 c = max_radius / sqrt(total_points - 1)
+                if total_points > 1:
+                    c = max_radius / math.sqrt(total_points - 1)
+                else:
+                    c = 0.0
                 
                 for spiral_index, idx in enumerate(sorted_indices):
-                    # 螺旋角度：使用黄金角度
+                    # 螺旋角度：使用黄金角度（137.508°）
                     angle = spiral_index * GOLDEN_ANGLE_RAD
                     
-                    # 半径：使用平方根分布，让点更均匀分布在圆形区域内
-                    # 从中心向外扩散
-                    if total_points > 1:
-                        radius_factor = math.sqrt(spiral_index / max(1, total_points - 1))
-                    else:
-                        radius_factor = 0.0
-                    
-                    radius = radius_factor * max_radius
+                    # 半径：r = c * sqrt(i)，确保最大半径 < hex_size * 0.9
+                    radius = c * math.sqrt(spiral_index)
                     
                     # 计算偏移位置
                     offset_x = radius * math.cos(angle)
@@ -564,10 +658,20 @@ class SonicUniverse(QGraphicsScene):
         self.hex_layer.set_data(grid_map, self.metadata, self.norm_coords)
         self.scatter_layer.set_data(constrained_scatter_coords, self.metadata)
         
-        # 6. 自动调整相机范围
-        rect = self.itemsBoundingRect()
-        rect.adjust(-500, -500, 500, 500)  # Padding
-        self.setSceneRect(rect)
+        # 6. 自动调整相机范围（基于实际数据坐标）
+        if len(self.norm_coords) > 0:
+            min_x, min_y = self.norm_coords.min(axis=0)
+            max_x, max_y = self.norm_coords.max(axis=0)
+            margin = 500.0
+            rect = QRectF(
+                min_x - margin, min_y - margin,
+                max_x - min_x + 2 * margin,
+                max_y - min_y + 2 * margin
+            )
+            self.setSceneRect(rect)
+        else:
+            # 如果没有数据，使用默认范围
+            self.setSceneRect(0, 0, 10000, 10000)
     
     def _pixel_to_hex(self, x, y):
         size = self.hex_size
@@ -595,11 +699,49 @@ class SonicUniverse(QGraphicsScene):
 
     # --- 交互核心：手动命中测试 ---
     def find_closest_data(self, scene_pos):
-        """找到鼠标点击位置最近的数据"""
+        """
+        找到鼠标点击位置最近的数据
+        根据LOD级别返回不同结果：
+        - LOD < 2: 返回该六边形内的所有数据列表
+        - LOD >= 2: 返回单个文件的详细信息
+        """
+        current_lod = self.current_zoom
+        if current_lod < 0.6:
+            lod_level = 0
+        elif current_lod < 1.8:
+            lod_level = 1
+        else:
+            lod_level = 2
+        
+        # LOD 门控：LOD < 2 时返回六边形内所有数据
+        if lod_level < 2:
+            # 根据点击位置找到对应的六边形坐标
+            q, r = self._pixel_to_hex(scene_pos.x(), scene_pos.y())
+            
+            # 检查该六边形是否存在数据
+            if hasattr(self, 'hex_layer') and self.hex_layer.grid_data:
+                hex_key = (q, r)
+                if hex_key in self.hex_layer.grid_data:
+                    indices = self.hex_layer.grid_data[hex_key]
+                    if indices:
+                        # 返回该六边形内所有数据的元数据列表
+                        metadata_list = []
+                        for idx in indices:
+                            if idx < len(self.metadata):
+                                metadata_list.append(self.metadata[idx])
+                        return {
+                            'type': 'hex',
+                            'hex_key': hex_key,
+                            'indices': indices,
+                            'metadata_list': metadata_list,
+                            'count': len(metadata_list)
+                        }
+            return None
+        
+        # LOD >= 2: 使用KDTree进行精确的最近邻搜索
         if self.tree is None or self.current_display_coords is None:
             return None
         
-        # 查询最近邻，距离阈值设为 20px (太远点不到)
         try:
             dist, idx = self.tree.query([scene_pos.x(), scene_pos.y()], distance_upper_bound=20)
             
@@ -607,6 +749,7 @@ class SonicUniverse(QGraphicsScene):
                 return None
             
             return {
+                'type': 'point',
                 'index': int(idx),
                 'metadata': self.metadata[int(idx)],
                 'pos': self.current_display_coords[int(idx)]
@@ -632,6 +775,10 @@ class SonicUniverse(QGraphicsScene):
         return [self.metadata[int(i)] for i in indices if int(i) < len(self.metadata)]
 
     def update_lod(self, zoom):
+        # 确保 zoom 值有效
+        if zoom <= 0:
+            zoom = 1.0
+        
         self.current_zoom = zoom
         if hasattr(self, 'hex_layer'):
             self.hex_layer.update_lod(zoom)

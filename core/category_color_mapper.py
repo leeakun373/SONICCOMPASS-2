@@ -13,29 +13,12 @@ import hashlib
 class CategoryColorMapper:
     """Category 颜色映射器 - 基于 UCS Category 大类"""
     
-    # 20 色霓虹色板（赛博朋克风格）
-    NEON_PALETTE = [
-        QColor('#EF4444'),  # Neon Red
-        QColor('#06B6D4'),  # Cyan
-        QColor('#10B981'),  # Emerald
-        QColor('#F59E0B'),  # Amber
-        QColor('#8B5CF6'),  # Violet
-        QColor('#D946EF'),  # Magenta
-        QColor('#00F5FF'),  # Aqua
-        QColor('#FF00FF'),  # Magenta
-        QColor('#00FF00'),  # Lime
-        QColor('#FFFF00'),  # Yellow
-        QColor('#FF4500'),  # Orange Red
-        QColor('#00CED1'),  # Dark Turquoise
-        QColor('#FF1493'),  # Deep Pink
-        QColor('#7FFF00'),  # Chartreuse
-        QColor('#FFD700'),  # Gold
-        QColor('#FF69B4'),  # Hot Pink
-        QColor('#1E90FF'),  # Dodger Blue
-        QColor('#32CD32'),  # Lime Green
-        QColor('#FF6347'),  # Tomato
-        QColor('#9370DB'),  # Medium Purple
-    ]
+    # 黄金分割比例常数
+    GOLDEN_RATIO = 0.618033988749895
+    
+    # 固定的饱和度和明度
+    FIXED_SATURATION = 0.75
+    FIXED_VALUE = 0.85
     
     def __init__(self, ucs_csv_path: str = "data_config/ucs_catid_list.csv"):
         """
@@ -67,11 +50,9 @@ class CategoryColorMapper:
                     self.catid_to_category[catid] = category
                     if subcategory:
                         self.catid_to_subcategory[catid] = subcategory
-                    # 为每个 Category 分配颜色（使用哈希函数确保一致性）
+                    # 为每个 Category 分配颜色（使用黄金分割算法）
                     if category not in self.category_colors:
-                        hash_value = int(hashlib.md5(category.encode('utf-8')).hexdigest(), 16)
-                        color_index = hash_value % len(self.NEON_PALETTE)
-                        self.category_colors[category] = self.NEON_PALETTE[color_index]
+                        self.category_colors[category] = self._generate_golden_ratio_color(category)
         except Exception as e:
             print(f"[ERROR] 加载 UCS 映射失败: {e}")
     
@@ -127,6 +108,30 @@ class CategoryColorMapper:
         
         return None
     
+    def _generate_golden_ratio_color(self, category: str) -> QColor:
+        """
+        使用黄金分割算法生成颜色
+        
+        Args:
+            category: Category 名称
+            
+        Returns:
+            QColor 对象
+        """
+        # 计算哈希值
+        hash_value = int(hashlib.md5(category.encode('utf-8')).hexdigest(), 16)
+        
+        # 使用黄金分割算法计算色相
+        # Hue = (hash(category) * 0.618033988749895) % 1.0
+        hue = (hash_value * self.GOLDEN_RATIO) % 1.0
+        
+        # 固定饱和度和明度
+        saturation = self.FIXED_SATURATION
+        value = self.FIXED_VALUE
+        
+        # 使用HSV生成颜色（Qt的HSV范围是0-1）
+        return QColor.fromHsvF(hue, saturation, value)
+    
     def get_color_for_category(self, category: Optional[str]) -> QColor:
         """
         根据 Category 名称获取颜色
@@ -144,10 +149,8 @@ class CategoryColorMapper:
         if category in self.category_colors:
             return self.category_colors[category]
         
-        # 如果未找到，使用哈希函数分配新颜色
-        hash_value = int(hashlib.md5(category.encode('utf-8')).hexdigest(), 16)
-        color_index = hash_value % len(self.NEON_PALETTE)
-        color = self.NEON_PALETTE[color_index]
+        # 如果未找到，使用黄金分割算法生成新颜色
+        color = self._generate_golden_ratio_color(category)
         self.category_colors[category] = color
         return color
     

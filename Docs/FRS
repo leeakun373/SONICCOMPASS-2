@@ -1,0 +1,104 @@
+Sonic Compass 2.0 功能需求规格说明书 (FRS)
+版本: v2.1 (Alignment Update)
+日期: 2026-01-02
+核心理念: Google Earth for Audio —— 从宏观语义宇宙到微观资产管理的无缝流转。
+1. 探索者模式 (Explorer Mode) - 双视窗架构
+核心逻辑: 提供两种截然不同的浏览维度，通过左上角 Toggle 开关切换。
+1.1 视图 A: 星云视图 (Semantic Nebula)
+基于 AI 语义向量 (UMAP) 的无序聚类地图。
+视觉逻辑:
+LOD 0 (宏观):
+显示：仅六边形。
+颜色：主导分类颜色填充（稍淡） + 分类颜色描边（实色）。
+标签：显示 Category（大类），颜色跟随分类，动态计算位置防重叠，随缩放动态调整大小。
+
+LOD 1 (微观):
+显示：六边形 + 散点开始隐约出现（或仅显示六边形细节）。
+标签：大类标签消失，显示 SubCategory（子类） 或 hex 内部的具体信息，每个蜂窝独立显示。
+
+LOD 2 (细节):
+显示：散点 (Points) 清晰可见，六边形淡化为背景。
+边界: 即使在微观视角，蜂窝的幽灵边框依然可见，提供区域上下文。
+技术要求:
+数据源: coordinates.npy (UMAP 降维)。
+渲染: 使用 QPainter.drawPoints 批量渲染，确保 10万+ 点流畅缩放。
+1.1.2 视觉规范：蜂窝构造 (Hex Construction)
+硬朗切割 (Hard Separation):
+蜂窝单元之间必须保留明显的物理间隙（Gap）。
+规范: 无论缩放层级如何，每个六边形单元应比其网格占位小 5% - 10%（或固定保留 2px 的间距）。
+底色透出: 间隙处必须完全透出画布的深色背景 (#0B0C0E)，形成黑色的“切割线”。
+仪表盘质感 (Dashboard Texture):
+拒绝平涂: 禁止使用纯色块填充（Flat Color）。
+玻璃边缘: 每个六边形需有 1px 的高亮描边（颜色比填充色亮 20%），模拟玻璃或亚克力板的边缘光。
+微弱渐变: 填充色采用微弱的径向渐变 (Radial Gradient)，中心不透明度 40%，边缘不透明度 10%，增强立体通透感。
+目的: 消除“色块糊在一起”的廉价感，营造类似科幻电影中全息战术地图的精密拼接效果。
+1.2 视图 B: 库岛视图 (Library Archipelago) [New]
+基于文件路径层级的硬性物理地图。禁用 UMAP 语义坐标。
+布局算法: 使用 Circle Packing (圆形打包) 或 Treemap (矩形树图) 算法，确保层级互不重叠。
+LOD 层级:
+LOD 0 (群岛/大厂牌): 显示根目录库名 (e.g., "Boom Library", "Epic Stock") 为独立的大板块。
+LOD 1 (岛屿/子库): 放大进入大板块，显示一级子文件夹 (e.g., "Mechanicals", "Nature Essentials")。
+LOD 2 (聚落/文件夹): 显示具体的末端文件夹。
+LOD 3 (居民/文件): 最终显示音频文件点。
+特性: 严格遵循硬盘目录结构，作为用户“肌肉记忆”的查找入口。
+2. 引力模式 (Gravity Mode) - 动态搜索
+打破静态分布，基于意图的动态重排。
+2.1 搜索引力 (Search Spiral)
+触发: 顶部搜索框输入关键词 (e.g., "Sci-Fi Gun")。
+表现:
+无关隐退: 非匹配项亮度降低 80% (Dimmed)。
+中心螺旋: Top 50-100 最匹配项脱离原网格，以 螺旋状 (Logarithmic Spiral) 排列在屏幕中心，越中心匹配度越高。
+高亮逻辑: 仅高亮最相关的点，保持背景地图作为参考。
+2.2 预设引力桩 (Gravity Pillars)
+功能: 用户点击预设风格 (e.g., "Magic", "Dark")。
+表现: 屏幕出现引力桩图标，相关声音根据语义权重吸附至桩周围。
+自定义与 AI 辅助:
+用户可创建新预设 (JSON)。
+AI 扩词: 用户输入 "Scary"，AI 基于 BGE-M3 模型推荐近义词 "Horror, Creepy, Eerie" 供用户勾选加入预设。
+3. 散点分析模式 (Scatter / Dynamic Axes)
+基于逻辑轴的图表化分析。
+3.1 范围限制 (Scope Constraint) [Critical]
+前置条件: 为保证性能，禁止对全库 200万数据进行重排。
+触发: 仅当用户进行了“搜索”、“框选”或“选中特定库”，且当前选集数量 < 阈值 (如 5000) 时，才允许激活散点模式。
+3.2 动态轴重排 (Axis Morphing)
+交互: 左侧栏开启 "Dynamic Axes"，设定 X/Y 轴 (e.g., X="Organic", Y="Pitch")。
+动画: 选集内的点从地图坐标平滑飞向 XY 图表坐标。
+智能推荐 (Auto-Suggest): 点击 "✨" 按钮，AI 分析当前选集特征，自动填入区分度最大的轴配置。
+4. 交互与干预 (Interaction & Intervention)
+4.1 检查器面板 (Inspector Panel)
+位置: 右侧固定面板 (Width: 300px)。
+Tab 1: Info (信息): 显示波形 (大图)、文件名、路径、格式、UCS 及其它元数据。只读。
+Tab 2: Edit (修正): Universal Tagger 核心区域。
+核心滑块: Reality, Tone, Function (One-shot/Loop)。
+物理反馈: 拖动滑块时，地图上的点位置即时偏移，且修正数据写入本地数据库。
+Tab 3: AI (助手): 简单的自然语言对话框 ("Show me more sounds like this but heavier")。
+4.2 导航与操作
+导航: 滚轮缩放 (Mouse-centered Zoom)，右键/中键平移。
+框选 (Marquee Select): 右键拖拽画框。
+结果: 同时选中框内的多个蜂窝/点，并高亮，同时将这些资产投射到“列表视图”。
+多选: 支持 Ctrl/Cmd + Click 累加选择多个蜂窝。
+5. 资产桥接 (Asset Bridge) - 生产力核心
+5.1 双向联动列表 (Bi-directional List)
+位置: 可折叠的底部或侧边面板 (List View)。
+Map -> List: 地图上框选/点选 -> 列表只显示选中项。
+List -> Map: 鼠标悬停列表项 -> 地图镜头平滑移动至该点并高亮。
+5.2 音频引擎 (Audio Engine)
+驱动支持: 必须支持 ASIO (Windows) 和 CoreAudio (Mac)，允许用户在设置中选择输出设备 (防止独占)。
+预览:
+列表项包含迷你波形。
+支持 Space 键播放/暂停。
+支持波形 Scrubbing (拖拽进度)。
+5.3 拖拽与导出 (Drag & Drop)
+源: 支持从列表项拖拽，也支持直接从地图上的点拖拽。
+目标: 直接拖入 DAW (Reaper, Nuendo, Pro Tools) 的轨道或系统文件夹。
+状态栏: 底部显示 "Selected: [N] items | Total Size: [MB] | Duration: [MM:SS]"。
+附录：非功能性需求 (NFR)
+性能目标:
+支持 200 万+ 音频资产索引。
+视图缩放帧率保持 60 FPS (基于 OpenGL Batch Rendering)。
+搜索响应时间 < 200ms。
+视觉风格:
+主题: Dark Cyberpunk (深灰背景 #0B0C0E, 霓虹点缀)。
+蜂窝: 必须有间隙 (Gap) 和渐变填充，避免色块化。
+数据安全:
+用户的“修正数据” (Tagger User Data) 需独立存储，不破坏原始 Soundminer 数据库。
