@@ -707,7 +707,12 @@ class SonicCompassMainWindow(QMainWindow):
             importer.close()
             
         except Exception as e:
-            self.status_label.setText(f"Error: {str(e)}")
+            error_msg = str(e)
+            self.status_label.setText(f"Error: {error_msg}")
+            # 输出到控制台，避免静默失败
+            print(f"[ERROR] _load_data 失败: {error_msg}", flush=True)
+            import traceback
+            traceback.print_exc()
             # 隐藏进度条
             self.progress_bar.setVisible(False)
             self.progress_label.setVisible(False)

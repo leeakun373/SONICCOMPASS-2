@@ -68,11 +68,28 @@ class HexGridLayer(QGraphicsItem):
         self.current_lod = 0
         
     def set_data(self, grid_map, metadata, coords):
+        import sys
+        print(f"[DEBUG] HexGridLayer.set_data: start, grid_map={len(grid_map)}", flush=True)
+        sys.stdout.flush()
+        
         self.grid_data = grid_map
         self.metadata = metadata
         self.coords = coords
         self.prepareGeometryChange()
-        self._generate_labels(metadata)
+        
+        # 【临时修复】注释掉标签生成，先让画面显示出来
+        # print(f"[DEBUG] HexGridLayer.set_data: 开始生成标签，网格数量={len(grid_map)}", flush=True)
+        # sys.stdout.flush()
+        # self._generate_labels(metadata)
+        # print(f"[DEBUG] HexGridLayer.set_data: 标签生成完成", flush=True)
+        # sys.stdout.flush()
+        
+        # 临时：只初始化空标签，不生成
+        self.category_labels = []
+        self.subcategory_labels = {}
+        
+        print(f"[DEBUG] HexGridLayer.set_data: done", flush=True)
+        sys.stdout.flush()
         
     def _get_hex_neighbors(self, q, r):
         """获取六边形的6个相邻坐标"""
@@ -131,8 +148,14 @@ class HexGridLayer(QGraphicsItem):
         category_positions = {}
         mapper = self._get_color_mapper()
         
+        total_hexes = len(self.grid_data)
+        processed = 0
+        
         for (q, r), indices in self.grid_data.items():
             if not indices: continue
+            processed += 1
+            if processed % 1000 == 0:
+                print(f"[DEBUG] _generate_labels: 已处理 {processed}/{total_hexes} 个六边形...", flush=True)
             
             # Phase 3.5: 使用 Mode (最频繁) Category 和 SubCategory
             categories = []
@@ -178,10 +201,13 @@ class HexGridLayer(QGraphicsItem):
                     self.subcategory_labels[(q, r)] = {'text': subcat, 'pos': center, 'color': color}
 
         # 生成大类标签
+        print(f"[DEBUG] _generate_labels: 开始查找连通域，类别数量={len(category_positions)}", flush=True)
         if category_positions:
             components = self._find_connected_components(category_positions)
+            print(f"[DEBUG] _generate_labels: 连通域查找完成，共 {len(components)} 个连通域", flush=True)
             # 过滤小岛屿
             large_components = [c for c in components if len(c[1]) >= 3] # 降低阈值到3
+            print(f"[DEBUG] _generate_labels: 过滤后剩余 {len(large_components)} 个大岛屿", flush=True)
             
             for category, coords in large_components:
                 # 计算几何中心
@@ -787,8 +813,53 @@ class SonicUniverse(QGraphicsScene):
         
         # 构建网格
         print("[DEBUG] 开始调用 _build_scene_data...")
-        self._build_scene_data()
+        if hasattr(self, 'norm_coords') and self.norm_coords is not None:
+            self._build_scene_data(self.norm_coords)
+        else:
+            print("[WARNING] norm_coords 尚未初始化，跳过 _build_scene_data")
         print(f"[DEBUG] _build_scene_data 完成，场景矩形: {self.sceneRect()}")
+    
+    def set_data(self, metadata, coords, embeddings=None):
+        """设置数据 (Fix: Layout Order)"""
+        # 1. 基础检查
+        if coords is None or len(coords) == 0:
+            print("[WARNING] SonicUniverse.set_data: coords is empty!")
+            return
+
+        self.metadata = metadata
+        self.raw_coords = coords
+        self.embeddings = embeddings
+        
+        # 2. 计算归一化坐标 (必须在构建场景前完成!)
+        min_vals = np.min(coords, axis=0)
+        max_vals = np.max(coords, axis=0)
+        range_val = np.max(max_vals - min_vals)
+        if range_val < 1e-5: 
+            range_val = 1.0  # 防止除零
+        
+        scale = 3000.0 / range_val
+        self.norm_coords = (coords - min_vals) * scale
+        
+        print(f"[DEBUG] set_data: 归一化完成, shape={self.norm_coords.shape}")
+
+        # 3. 构建场景 (传入刚刚算好的 norm_coords)
+        self._build_scene_data(self.norm_coords)
+        
+        # 4. 适配视图
+        if hasattr(self, 'norm_coords') and self.norm_coords is not None and len(self.norm_coords) > 0:
+            min_coords = self.norm_coords.min(axis=0)
+            max_coords = self.norm_coords.max(axis=0)
+            margin = 500.0
+            rect = QRectF(
+                float(min_coords[0]) - margin,
+                float(min_coords[1]) - margin,
+                float(max_coords[0] - min_coords[0]) + 2 * margin,
+                float(max_coords[1] - min_coords[1]) + 2 * margin
+            )
+            self.setSceneRect(rect)
+        
+        # 强制重绘
+        self.update()
     
     def _normalize_coordinates(self):
         """归一化坐标到紧凑画布范围（3000x3000）"""
@@ -868,93 +939,115 @@ class SonicUniverse(QGraphicsScene):
         
         return constrained_coords
     
-    def _build_scene_data(self):
-        """完全基于数据生成网格，杜绝空蜂窝"""
-        if not hasattr(self, 'norm_coords') or self.norm_coords is None or len(self.norm_coords) == 0:
-            print(f"[ERROR] _build_scene_data: norm_coords 无效! hasattr={hasattr(self, 'norm_coords')}, is None={self.norm_coords is None if hasattr(self, 'norm_coords') else 'N/A'}, len={len(self.norm_coords) if hasattr(self, 'norm_coords') and self.norm_coords is not None else 0}")
+    def _build_scene_data(self, norm_coords=None):
+        """构建场景数据"""
+        import sys
+        print("[DEBUG] build: start", flush=True)
+        sys.stdout.flush()
+        
+        # 如果没传参数，使用 self.norm_coords 作为 fallback
+        if norm_coords is None:
+            norm_coords = getattr(self, 'norm_coords', None)
+            if norm_coords is None:
+                print("[ERROR] _build_scene_data: norm_coords is None and self.norm_coords is also None!", flush=True)
+                return
+        
+        # 强校验传入参数
+        if len(norm_coords) == 0:
+            print("[ERROR] _build_scene_data: Received empty coords!", flush=True)
             return
 
-        print(f"[DEBUG] _build_scene_data: 开始构建，norm_coords shape={self.norm_coords.shape}")
-
-        # 2. 只有"有数据"的地方才会有蜂窝
-        grid_map = {}  # (q, r) -> [indices]
+        print(f"[DEBUG] build: Building hex grid for {len(norm_coords)} items...", flush=True)
+        sys.stdout.flush()
         
-        for idx, (x, y) in enumerate(self.norm_coords):
+        # 清理旧数据
+        print("[DEBUG] build: 清理旧数据...", flush=True)
+        sys.stdout.flush()
+        if hasattr(self, 'hex_layer'):
+            self.hex_layer.grid_data.clear()
+        if hasattr(self, 'scatter_layer'):
+            self.scatter_layer.points = None
+        
+        # 构建网格索引
+        print("[DEBUG] build: 构建网格索引...", flush=True)
+        sys.stdout.flush()
+        grid_map = {}
+        for idx, (x, y) in enumerate(norm_coords):
             q, r = self._pixel_to_hex(x, y)
             if (q, r) not in grid_map:
                 grid_map[(q, r)] = []
             grid_map[(q, r)].append(idx)
+            # 每处理 5000 条输出一次进度
+            if (idx + 1) % 5000 == 0:
+                print(f"[DEBUG] build: 已处理 {idx + 1}/{len(norm_coords)} 个点...", flush=True)
+                sys.stdout.flush()
         
-        print(f"[DEBUG] _build_scene_data: 构建完成，grid_map 包含 {len(grid_map)} 个六边形")
-        
-        # 3. 不再使用向日葵螺旋规整化（废弃）
-        # 保留原始坐标用于点击检测，代表点系统会处理显示
-        
-        # 存储原始坐标（用于点击检测）
-        self.current_display_coords = self.norm_coords
-        
-        # 4. 使用原始坐标构建空间索引（用于点击检测）
-        if SCIPY_AVAILABLE and len(self.norm_coords) > 0:
-            self.tree = cKDTree(self.norm_coords)
+        print(f"[DEBUG] build: grid_map={len(grid_map)}", flush=True)
+        sys.stdout.flush()
             
-        # 5. 传递数据给图层
-        print(f"[DEBUG] _build_scene_data: 准备传递数据给图层...")
-        try:
-            self.hex_layer.set_data(grid_map, self.metadata, self.norm_coords)
-            print(f"[DEBUG] _build_scene_data: hex_layer.set_data 完成")
-        except Exception as e:
-            print(f"[ERROR] _build_scene_data: hex_layer.set_data 失败: {e}")
-            import traceback
-            traceback.print_exc()
+        # 存储原始坐标（用于点击检测）
+        self.current_display_coords = norm_coords
+        self.norm_coords = norm_coords
         
-        # 设置hex_size并传递hex_grid_data用于代表点系统
-        try:
-            self.scatter_layer.set_hex_size(self.hex_size)
-            self.scatter_layer.set_data(self.norm_coords, self.metadata, grid_map)
-            print(f"[DEBUG] _build_scene_data: scatter_layer.set_data 完成")
-        except Exception as e:
-            print(f"[ERROR] _build_scene_data: scatter_layer.set_data 失败: {e}")
-            import traceback
-            traceback.print_exc()
+        # 使用原始坐标构建空间索引（用于点击检测）
+        print("[DEBUG] build: 构建 KDTree 空间索引...", flush=True)
+        sys.stdout.flush()
+        if SCIPY_AVAILABLE and len(norm_coords) > 0:
+            self.tree = cKDTree(norm_coords)
+            print("[DEBUG] build: KDTree 构建完成", flush=True)
+            sys.stdout.flush()
+            
+        # 将数据传递给图层
+        print("[DEBUG] build: before hex_layer.set_data", flush=True)
+        sys.stdout.flush()
+        if hasattr(self, 'hex_layer'):
+            try:
+                self.hex_layer.set_data(grid_map, self.metadata, norm_coords)
+                print("[DEBUG] build: after hex_layer.set_data", flush=True)
+                sys.stdout.flush()
+            except Exception as e:
+                print(f"[ERROR] build: hex_layer.set_data 失败: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                sys.stdout.flush()
         
-        # 6. 自动调整相机范围（基于实际数据坐标）
-        print(f"[DEBUG] _build_scene_data: 准备设置场景矩形，norm_coords len={len(self.norm_coords)}")
-        try:
-            if len(self.norm_coords) > 0:
-                min_coords = self.norm_coords.min(axis=0)
-                max_coords = self.norm_coords.max(axis=0)
-                # 转换为 Python float（numpy 数组需要转换）
-                min_x = float(min_coords[0])
-                min_y = float(min_coords[1])
-                max_x = float(max_coords[0])
-                max_y = float(max_coords[1])
-                print(f"[DEBUG] _build_scene_data: 坐标范围 min=({min_x}, {min_y}), max=({max_x}, {max_y})")
-                margin = 500.0
-                rect = QRectF(
-                    min_x - margin, min_y - margin,
-                    max_x - min_x + 2 * margin,
-                    max_y - min_y + 2 * margin
-                )
-                print(f"[DEBUG] _build_scene_data: 计算出的场景矩形 = {rect}")
-                self.setSceneRect(rect)
-                print(f"[DEBUG] 设置场景矩形: {rect}")
-                print(f"[DEBUG] 验证场景矩形: {self.sceneRect()}")
-            else:
-                # 如果没有数据，使用默认范围（匹配归一化坐标范围 0-3000，加上边距）
-                print("[WARNING] norm_coords 为空，使用默认场景矩形")
-                self.setSceneRect(0, 0, 3500, 3500)
-                print(f"[DEBUG] 设置默认场景矩形: {self.sceneRect()}")
-        except Exception as e:
-            print(f"[ERROR] _build_scene_data: 设置场景矩形时出错: {e}")
-            import traceback
-            traceback.print_exc()
-            # 使用默认场景矩形
-            self.setSceneRect(0, 0, 3500, 3500)
+        print("[DEBUG] build: before scatter_layer.set_data", flush=True)
+        sys.stdout.flush()
+        if hasattr(self, 'scatter_layer'):
+            try:
+                self.scatter_layer.set_hex_size(self.hex_size)
+                self.scatter_layer.set_data(norm_coords, self.metadata, grid_map)
+                print("[DEBUG] build: after scatter_layer.set_data", flush=True)
+                sys.stdout.flush()
+            except Exception as e:
+                print(f"[ERROR] build: scatter_layer.set_data 失败: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                sys.stdout.flush()
+        
+        # 设置场景矩形（基于实际坐标）
+        print("[DEBUG] build: 设置场景矩形...", flush=True)
+        sys.stdout.flush()
+        if len(norm_coords) > 0:
+            min_coords = norm_coords.min(axis=0)
+            max_coords = norm_coords.max(axis=0)
+            margin = 500.0
+            rect = QRectF(
+                float(min_coords[0]) - margin,
+                float(min_coords[1]) - margin,
+                float(max_coords[0] - min_coords[0]) + 2 * margin,
+                float(max_coords[1] - min_coords[1]) + 2 * margin
+            )
+            self.setSceneRect(rect)
+            print(f"[DEBUG] build: 场景矩形设置完成: {rect}", flush=True)
+            sys.stdout.flush()
         else:
-            # 如果没有数据，使用默认范围（匹配归一化坐标范围 0-3000，加上边距）
-            print("[WARNING] norm_coords 为空，使用默认场景矩形")
+            print("[WARNING] norm_coords 为空，使用默认场景矩形", flush=True)
+            sys.stdout.flush()
             self.setSceneRect(0, 0, 3500, 3500)
-            print(f"[DEBUG] 设置默认场景矩形: {self.sceneRect()}")
+        
+        print("[DEBUG] build: 完成！", flush=True)
+        sys.stdout.flush()
     
     def mousePressEvent(self, event):
         """处理鼠标点击，检测点击的六边形"""
@@ -1110,7 +1203,11 @@ class SonicUniverse(QGraphicsScene):
         self._normalize_coordinates()
         
         # 重建场景数据（这会更新图层和空间索引）
-        self._build_scene_data()
+        # 传入 self.norm_coords 确保参数正确传递
+        if hasattr(self, 'norm_coords') and self.norm_coords is not None:
+            self._build_scene_data(self.norm_coords)
+        else:
+            self._build_scene_data()
     
     def set_gravity_pillars(self, pillars: List[str], weights: Optional[List[Dict[str, float]]] = None):
         """设置引力桩"""

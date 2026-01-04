@@ -8,17 +8,8 @@ import pickle
 import sys
 from pathlib import Path
 
-# 修复 Windows 终端编码问题
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
-# 确保能找到模块
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from core.vector_engine import VectorEngine
-from core.category_color_mapper import CategoryColorMapper
+# 注意：不在模块级别修改 sys.stdout，避免在导入时卡住
+# 编码修复将在函数内部进行
 
 
 def generate_platinum_centroids():
@@ -30,6 +21,20 @@ def generate_platinum_centroids():
     2. 使用 VectorEngine 编码每个 CatID 的描述文本
     3. 保存为 cache/platinum_centroids.pkl (格式: {CatID: Vector})
     """
+    # 修复 Windows 终端编码问题（在函数内部执行）
+    if sys.platform == 'win32':
+        try:
+            import io
+            if not isinstance(sys.stdout, io.TextIOWrapper):
+                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+            if not isinstance(sys.stderr, io.TextIOWrapper):
+                sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+        except:
+            pass  # 如果已经设置过，忽略错误
+    
+    # 确保能找到模块（在函数内部执行，避免在导入时卡住）
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    
     print("=" * 60)
     print("✨ 生成 Platinum Centroids (白金质心)")
     print("=" * 60)
@@ -56,22 +61,36 @@ def generate_platinum_centroids():
         print(f"   ❌ 加载失败: {e}")
         sys.exit(1)
     
-    # 4. 初始化 VectorEngine
+    # 4. 延迟导入并初始化 VectorEngine（避免在模块导入时加载模型）
     print("\n🤖 初始化向量引擎...")
+    sys.stdout.flush()
     try:
+        from core.vector_engine import VectorEngine
+        print("   [步骤] 导入 VectorEngine 模块...", flush=True)
+        sys.stdout.flush()
         vector_engine = VectorEngine(model_path="./models/bge-m3")
-        print("   ✅ 向量引擎初始化完成")
+        print("   ✅ 向量引擎初始化完成", flush=True)
+        sys.stdout.flush()
     except Exception as e:
-        print(f"   ❌ 向量引擎初始化失败: {e}")
+        print(f"   ❌ 向量引擎初始化失败: {e}", flush=True)
+        sys.stdout.flush()
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     
-    # 5. 初始化 CategoryColorMapper（用于验证 CatID）
+    # 5. 延迟导入并初始化 CategoryColorMapper（用于验证 CatID）
     print("\n🎨 初始化 CategoryColorMapper...")
+    sys.stdout.flush()
     try:
+        from core.category_color_mapper import CategoryColorMapper
+        print("   [步骤] 导入 CategoryColorMapper 模块...", flush=True)
+        sys.stdout.flush()
         mapper = CategoryColorMapper()
-        print("   ✅ CategoryColorMapper 初始化完成")
+        print("   ✅ CategoryColorMapper 初始化完成", flush=True)
+        sys.stdout.flush()
     except Exception as e:
-        print(f"   [WARNING] CategoryColorMapper 初始化失败: {e}")
+        print(f"   [WARNING] CategoryColorMapper 初始化失败: {e}", flush=True)
+        sys.stdout.flush()
         mapper = None
     
     # 6. 准备文本列表（按 CatID 顺序）

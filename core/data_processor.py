@@ -277,129 +277,83 @@ class DataProcessor(QObject):
     
     def _extract_category(self, meta_dict: Dict) -> Optional[Tuple[str, str]]:
         """
-        Phase 3.5: Smart Metadata Arbitration - 3级仲裁逻辑
-        
-        Args:
-            meta_dict: 元数据字典
-            
-        Returns:
-            (Category, SubCategory) 元组，如果无法确定则返回 None
+        三级仲裁逻辑 (Final Fix): 强规则 -> 显式检查 -> AI 向量
+        目标：始终返回 Category Code (e.g. 'WPN') 用于颜色映射
         """
-        try:
-            from core.category_color_mapper import CategoryColorMapper
-            mapper = CategoryColorMapper()
-        except Exception:
-            mapper = None
-        
-        # ========== Level 1: Explicit (检查 Category 字段) ==========
         cat_id = meta_dict.get('category', '').strip()
-        if cat_id:
-            if mapper:
-                category = mapper.get_category_from_catid(cat_id)
-                subcategory = mapper.get_subcategory_from_catid(cat_id)
-                
-                # Dynamic "Misc" Filter: 拒绝通用的 "Misc" 元数据，强制使用 AI 仲裁
-                is_weak = False
-                
-                # Check 1: String contains "MISC" (case-insensitive)
-                cat_id_upper = cat_id.upper()
-                if "MISC" in cat_id_upper:
-                    is_weak = True
-                if subcategory and "MISC" in subcategory.upper():
-                    is_weak = True
-                
-                # Check 2: Specific Generic IDs
-                weak_ids = ['GEN', 'GENERAL', 'NONE', 'UNCATEGORIZED']
-                if cat_id_upper in weak_ids:
-                    is_weak = True
-                
-                # Only return if it passes the "Misc Check" and is valid
-                if not is_weak and category and category != "UNCATEGORIZED":
-                    return (category, subcategory or "")
-                # If is_weak is True, fall through to Level 2/3 for better specificity
+        rich_text = meta_dict.get('rich_context_text', '') or meta_dict.get('semantic_text', '')
+        text_upper = rich_text.upper() if rich_text else ""
         
-        # ========== Level 2: Heuristics (使用 ucs_alias.csv 和 Synonyms) ==========
-        # 使用 rich_context_text（如果存在）或 semantic_text（向后兼容）
-        context_text = meta_dict.get('rich_context_text', '') or meta_dict.get('semantic_text', '')
-        if context_text and self.ucs_manager:
-            context_lower = context_text.lower()
+        # --- Level 0: 强规则层 (The Hard Rule Layer) ---
+        # 解决 "Future Weapon" -> "Aircraft" 的问题
+        # 只要文件名里有这些词，直接锁定 Code，不给 AI 瞎猜的机会
+        STRONG_RULES = {
+            'WEAPON': 'WPN', 'GUN': 'WPN', 'FIREARM': 'WPN', 'EXPLOSION': 'WPN', 'BLAST': 'WPN',
+            'LASER': 'SCI', 'SCIFI': 'SCI', 'ROBOT': 'SCI', 'FUTURISTIC': 'SCI',
+            'MAGIC': 'MAG', 'SPELL': 'MAG', 'SORCERY': 'MAG',
+            'WATER': 'WAT', 'LIQUID': 'WAT', 'SPLASH': 'WAT', 'OCEAN': 'WAT',
+            'RAIN': 'WEA', 'THUNDER': 'WEA', 'STORM': 'WEA',
+            'WIND': 'AMB', 'AMBIENCE': 'AMB', 'ATMOSPHERE': 'AMB',
+            'FOOTSTEP': 'FOL', 'WALK': 'FOL', 'CLOTH': 'FOL',
+            'UI': 'UI', 'BUTTON': 'UI', 'CLICK': 'UI', 'INTERFACE': 'UI',
+            'AIRCRAFT': 'AERO', 'PLANE': 'AERO', 'JET': 'AERO', 'HELICOPTER': 'AERO'
+        }
+        
+        # 使用分词匹配 (Tokenization Check) 防止 "TRAIN" 匹配 "RAIN"
+        # 简单的做法是检查单词边界，或者直接检查包含
+        for keyword, code in STRONG_RULES.items():
+            if keyword in text_upper:
+                # 命中强规则！直接返回 Code
+                return code, "GENERAL"
+
+        # --- Level 1: 现有 Metadata 显式检查 ---
+        # 过滤垃圾分类
+        is_weak = False
+        if "MISC" in cat_id.upper(): 
+            is_weak = True
+        if cat_id.upper() in ['GEN', 'GENERAL', 'NONE', 'UNCATEGORIZED', '']: 
+            is_weak = True
+        
+        if not is_weak and cat_id and self.ucs_manager:
+            # 尝试解析 CatID (如 "AIRBlow")
+            info = self.ucs_manager.get_catid_info(cat_id)
+            if info and info.get('category_code'):
+                 return info['category_code'], info.get('subcategory_name', '')
+
+        # --- Level 3: AI 向量仲裁 (The Vector Layer) ---
+        if not self.category_centroids:
+            return "UNCATEGORIZED", ""
+
+        if not rich_text:
+            return "UNCATEGORIZED", ""
+
+        try:
+            vector = self.vector_engine.encode(rich_text)
+        except:
+            return "UNCATEGORIZED", ""
             
-            # 2.1: 使用 ucs_alias.csv 映射
-            resolved_catid = self.ucs_manager.resolve_alias(context_lower)
-            if resolved_catid:
-                if mapper:
-                    category = mapper.get_category_from_catid(resolved_catid)
-                    subcategory = mapper.get_subcategory_from_catid(resolved_catid)
-                    if category and category != "UNCATEGORIZED":
-                        return (category, subcategory or "")
+        best_cat_id = None
+        best_score = -1.0
+        
+        for cid, centroid in self.category_centroids.items():
+            score = np.dot(vector, centroid)
+            if score > best_score:
+                best_score = score
+                best_cat_id = cid
+                
+        # 结果解析
+        if best_cat_id and best_score > 0.4:
+            if self.ucs_manager:
+                # 查表：从 CatID (e.g. 'AIRBlow') 查出 Code ('AIR')
+                info = self.ucs_manager.get_catid_info(best_cat_id)
+                if info and info.get('category_code'):
+                    return info['category_code'], info.get('subcategory_name', '')
             
-            # 2.2: 使用 Synonyms 从 ucs_catid_list.csv
-            if mapper:
-                # 获取所有 CatID 及其 Synonyms
-                try:
-                    import pandas as pd
-                    ucs_csv_path = Path("data_config/ucs_catid_list.csv")
-                    if ucs_csv_path.exists():
-                        df = pd.read_csv(ucs_csv_path, encoding='utf-8')
-                        for _, row in df.iterrows():
-                            synonyms_str = str(row.get('Synonyms - Comma Separated', '')).strip()
-                            if synonyms_str:
-                                synonyms = [s.strip().lower() for s in synonyms_str.split(',')]
-                                # 检查 context_text 是否包含任何同义词
-                                for synonym in synonyms:
-                                    if synonym and synonym in context_lower:
-                                        cat_id = str(row.get('CatID', '')).strip()
-                                        category = mapper.get_category_from_catid(cat_id)
-                                        subcategory = mapper.get_subcategory_from_catid(cat_id)
-                                        if category and category != "UNCATEGORIZED":
-                                            return (category, subcategory or "")
-                except Exception as e:
-                    print(f"[WARNING] Synonyms 匹配失败: {e}")
-        
-        # ========== Level 3: AI Vector Match (向量相似度) - 754 CatID Source of Truth ==========
-        if self.category_centroids and context_text:
-            try:
-                # 计算文件的 Embedding（使用 rich_context_text）
-                file_embedding = self.vector_engine.encode_batch(
-                    [context_text],
-                    batch_size=1,
-                    show_progress=False,
-                    normalize_embeddings=True
-                )[0]
-                
-                # 【关键修改】计算与所有 754 个 CatID 质心的余弦相似度
-                max_similarity = -1.0
-                best_catid = None
-                
-                for catid, centroid in self.category_centroids.items():
-                    # 余弦相似度（已归一化，直接点积）
-                    similarity = np.dot(file_embedding, centroid)
-                    if similarity > max_similarity:
-                        max_similarity = similarity
-                        best_catid = catid
-                
-                # 如果最大相似度 > 0.6，分配给该 CatID
-                if max_similarity > 0.6 and best_catid:
-                    # 【CRITICAL STEP】使用 UCSManager 查表获取 Parent Category (CatShort)
-                    if self.ucs_manager:
-                        final_category = self.ucs_manager.get_category_code(best_catid)  # 返回 CatShort (如 "AIR")
-                        final_subcategory = self.ucs_manager.get_subcategory_by_catid(best_catid)  # 返回 SubCategory (如 "BLOW")
-                        
-                        if final_category:
-                            # 保存 CatShort 到 metadata，确保 Color Mapper 能正确工作
-                            return (final_category, final_subcategory or "")
-                    else:
-                        # 如果没有 UCSManager，尝试使用 mapper
-                        if mapper:
-                            final_category = mapper.get_category_from_catid(best_catid)
-                            final_subcategory = mapper.get_subcategory_from_catid(best_catid)
-                            if final_category:
-                                return (final_category, final_subcategory or "")
-            except Exception as e:
-                print(f"[WARNING] AI 向量匹配失败: {e}")
-        
-        # 无法确定，返回 None（将在后续处理中标记为 UNCATEGORIZED）
-        return None
+            # 兜底：如果查不到表，但这看起来像是一个合法的 ID，取前三位大写
+            # 这能保证至少返回一个 Code，而不是 Name
+            return best_cat_id[:3].upper(), ""
+            
+        return "UNCATEGORIZED", ""
     
     def load_index(self) -> Tuple[List[Dict], np.ndarray]:
         """
