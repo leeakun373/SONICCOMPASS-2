@@ -6,7 +6,7 @@ ui/visualizer/sonic_universe.py
 import numpy as np
 from typing import List, Dict, Optional, Tuple
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem, QStyleOptionGraphicsItem, QWidget
-from PySide6.QtCore import Qt, QPointF, QRectF
+from PySide6.QtCore import Qt, QPointF, QRectF, Signal
 from PySide6.QtGui import QColor, QPen, QBrush, QPolygonF, QPainter, QRadialGradient, QFont, QStaticText
 import math
 import sys
@@ -157,20 +157,20 @@ class HexGridLayer(QGraphicsItem):
                         category_positions[category] = []
                     category_positions[category].append((q, r))
             
-            # LOD 1: 生成子类标签（强制使用 UCS subcategory）
+            # LOD 1: 生成子类标签（强制只显示subcategory，为空则不显示）
             center = self._hex_to_pixel(q, r)
             all_subcategories = []
             
-            # 收集该六边形内所有点的 subcategory
+            # 收集该六边形内所有点的 subcategory（只从metadata中读取）
             for idx in indices:
                 if idx >= len(metadata):
                     continue
                 item_meta = metadata[idx]
                 
-                # 优先使用 metadata 中的 subcategory
+                # 强制读取 metadata 中的 subcategory 字段
                 subcat = item_meta.get('subcategory', '')
                 
-                # 如果 subcategory 为空，使用 UCSManager 解析 CatID
+                # 如果 metadata 中没有，尝试从 UCSManager 解析
                 if not subcat:
                     item_cat_id = item_meta.get('category', '')
                     if item_cat_id and self.ucs_manager:
@@ -178,17 +178,12 @@ class HexGridLayer(QGraphicsItem):
                         if ucs_category:
                             subcat = ucs_category.subcategory
                 
-                # 如果仍然为空，尝试从 CategoryColorMapper 获取
-                if not subcat and item_cat_id and mapper:
-                    # 尝试通过 CategoryColorMapper 获取（作为回退）
-                    category = mapper.get_category_from_catid(item_cat_id)
-                    if category:
-                        subcat = category  # 如果没有 subcategory，使用 category 作为回退
-                
+                # 只添加非空的 subcategory（不再降级使用 category）
                 if subcat:
                     all_subcategories.append(str(subcat))
             
             # 使用 Counter 统计最频繁的 SubCategory (Mode)
+            # 如果 all_subcategories 为空，则不生成标签（留空）
             if all_subcategories:
                 counter = Counter(all_subcategories)
                 most_common_subcat = counter.most_common(1)[0][0]
@@ -256,6 +251,19 @@ class HexGridLayer(QGraphicsItem):
         # 1. 视口裁剪：只画可见区域
         clip_rect = option.exposedRect
         
+        # 调试：首次绘制时输出信息
+        if not hasattr(self, '_paint_debug_printed'):
+            print(f"[DEBUG] HexGridLayer.paint: 被调用！clip_rect = {clip_rect}")
+            print(f"[DEBUG] HexGridLayer.paint: grid_data items = {len(self.grid_data)}")
+            print(f"[DEBUG] HexGridLayer.paint: coords is None = {self.coords is None}")
+            if self.coords is not None:
+                print(f"[DEBUG] HexGridLayer.paint: coords shape = {self.coords.shape}")
+            if len(self.grid_data) > 0:
+                first_key = list(self.grid_data.keys())[0]
+                first_indices = self.grid_data[first_key]
+                print(f"[DEBUG] HexGridLayer.paint: 第一个六边形 (q={first_key[0]}, r={first_key[1]}) 包含 {len(first_indices)} 个点")
+            self._paint_debug_printed = True
+        
         # 简化的绘制逻辑
         painter.setRenderHint(QPainter.Antialiasing)
         
@@ -265,8 +273,23 @@ class HexGridLayer(QGraphicsItem):
         # 根据 LOD 设置绘制样式
         lod = self.current_lod
         
+        drawn_count = 0
         for (q, r), indices in self.grid_data.items():
-            center = self._hex_to_pixel(q, r)
+            # 【关键修复】使用实际数据坐标而不是六边形网格坐标
+            # 计算该六边形内所有点的平均坐标作为中心
+            if not indices or self.coords is None or len(self.coords) == 0:
+                continue
+            
+            # 获取该六边形内所有点的坐标（self.coords 是 numpy 数组）
+            valid_indices = [i for i in indices if i < len(self.coords)]
+            if not valid_indices:
+                continue
+            
+            # 计算中心点（使用平均坐标）
+            hex_coords = self.coords[valid_indices]  # numpy 数组切片
+            center_x = float(hex_coords[:, 0].mean())
+            center_y = float(hex_coords[:, 1].mean())
+            center = QPointF(center_x, center_y)
             
             # 改进的裁剪检查：检查六边形是否与裁剪区域相交
             # 考虑六边形的尺寸，而不是只检查中心点
@@ -305,6 +328,12 @@ class HexGridLayer(QGraphicsItem):
                 
             # 绘制六边形
             self._draw_single_hex(painter, center, len(indices), gap_ratio, color, lod)
+            drawn_count += 1
+
+        # 调试：输出绘制统计
+        if not hasattr(self, '_paint_count_printed'):
+            print(f"[DEBUG] HexGridLayer.paint: 绘制了 {drawn_count} 个六边形")
+            self._paint_count_printed = True
 
         # 绘制标签：LOD 0 显示大类标签，LOD 1 显示子类标签
         if lod == 0 and self.show_category_labels:
@@ -313,7 +342,13 @@ class HexGridLayer(QGraphicsItem):
             self._draw_subcategory_labels(painter, clip_rect)
             
     def _draw_single_hex(self, painter, center, density, gap_ratio, color, lod):
-        size = self.hex_size * gap_ratio
+        # LOD 0: 无边框，无缝拼接（使用完整hex_size）
+        # LOD 1: 细边框，保持gap_ratio
+        if lod == 0:
+            size = self.hex_size  # 完整大小，无缝拼接
+        else:
+            size = self.hex_size * gap_ratio  # LOD 1保持gap
+        
         # 创建六边形路径
         hex_poly = QPolygonF()
         for i in range(6):
@@ -324,21 +359,20 @@ class HexGridLayer(QGraphicsItem):
         
         # 根据 LOD 设置填充和描边样式（所有颜色都来自 CategoryColorMapper）
         if lod == 0:
-            # LOD 0: 填充透明度 60，描边透明度 220
+            # LOD 0: 无边框，填充Alpha 120-150（根据密度调整）
             fill_color = QColor(color)
-            fill_color.setAlpha(60)  # 填充 Alpha=60
-            border_color = QColor(color)
-            border_color.setAlpha(220)  # 描边 Alpha=220
-            painter.setPen(QPen(border_color, 1.5))
+            # 根据密度调整Alpha：密度越大，Alpha越高（更实心）
+            alpha = int(120 + min(30, density * 0.1))  # 120-150范围
+            fill_color.setAlpha(alpha)
+            painter.setPen(QPen(Qt.PenStyle.NoPen))  # 无边框
             painter.setBrush(QBrush(fill_color))
         else:
-            # LOD 1: 使用分类颜色，填充色稍微加深
+            # LOD 1: 细边框（Alpha=30），填充Alpha=150
             fill_color = QColor(color)
-            # 保持传入的透明度（150），但可以稍微加深
-            fill_color.setAlpha(color.alpha())
+            fill_color.setAlpha(150)
             border_color = QColor(color)
-            border_color.setAlpha(min(255, color.alpha() + 50))
-            painter.setPen(QPen(border_color, 1.5))
+            border_color.setAlpha(30)  # 细边框，Alpha=30
+            painter.setPen(QPen(border_color, 0.5))
             painter.setBrush(QBrush(fill_color))
         
         painter.drawPolygon(hex_poly)
@@ -582,19 +616,134 @@ class HexGridLayer(QGraphicsItem):
 
 
 class DetailScatterLayer(QGraphicsItem):
-    """细节散点层 - 修复版"""
+    """细节散点层 - 代表点+密度光晕版本"""
     
     def __init__(self):
         super().__init__()
-        self.points = None
+        self.representative_points = None  # 代表点坐标 (N, 2)
+        self.representative_indices = None  # 代表点的原始索引
+        self.density_glows = []  # [(center_x, center_y, radius, color, alpha), ...]
+        self.hex_point_map = {}  # (q, r) -> [all_indices] 用于点击检测
         self.metadata = []
         self.visible = False
         self.highlighted_indices = set()
+        self.hex_size = 50.0  # 默认值，需要从外部设置
+    
+    def set_hex_size(self, hex_size: float):
+        """设置六边形大小（用于计算光晕半径）"""
+        self.hex_size = float(hex_size)
+    
+    def set_data(self, coords, metadata, hex_grid_data=None):
+        """
+        设置数据并构建代表点和密度光晕
         
-    def set_data(self, coords, metadata):
-        self.points = coords
+        Args:
+            coords: 原始坐标数组 (N, 2)
+            metadata: 元数据列表
+            hex_grid_data: 六边形网格数据 {(q, r): [indices]}
+        """
         self.metadata = metadata
+        if hex_grid_data is not None:
+            self._build_representative_data(coords, metadata, hex_grid_data)
+        else:
+            # 如果没有hex_grid_data，使用所有点作为代表点（向后兼容）
+            self.representative_points = coords
+            self.representative_indices = list(range(len(coords)))
+            self.density_glows = []
         self.prepareGeometryChange()
+    
+    def _build_representative_data(self, coords, metadata, hex_grid_data):
+        """
+        构建代表点和密度光晕数据
+        
+        规则:
+        - N < 10: 显示所有N个点（indices[:N]）
+        - 10 <= N <= 100: 确定性选取前10个（indices[:10]）
+        - N > 100: 确定性选取前20个（indices[:20]）
+        - N > 10: 绘制密度光晕
+        
+        重要: 使用确定性选取（切片），不使用random.sample，确保视觉稳定性
+        """
+        representative_points_list = []
+        representative_indices_list = []
+        self.density_glows = []
+        self.hex_point_map = {}
+        
+        # 获取颜色映射器
+        from core.category_color_mapper import CategoryColorMapper
+        try:
+            mapper = CategoryColorMapper()
+        except Exception:
+            mapper = None
+        
+        # 计算六边形中心坐标的辅助函数
+        def hex_to_pixel(q, r):
+            size = self.hex_size
+            x = size * (3./2 * q)
+            y = size * (math.sqrt(3)/2 * q + math.sqrt(3) * r)
+            return (x, y)
+        
+        for (q, r), indices in hex_grid_data.items():
+            N = len(indices)
+            if N == 0:
+                continue
+            
+            # 存储原始点映射（用于点击检测）
+            self.hex_point_map[(q, r)] = indices.copy()
+            
+            # 确定性选取代表点
+            if N < 10:
+                selected_indices = indices[:N]  # 全部
+            elif N <= 100:
+                selected_indices = indices[:10]  # 前10个
+            else:
+                selected_indices = indices[:20]  # 前20个
+            
+            # 添加代表点坐标
+            for idx in selected_indices:
+                if idx < len(coords):
+                    representative_points_list.append(coords[idx])
+                    representative_indices_list.append(idx)
+            
+            # 如果N > 10，生成密度光晕
+            if N > 10:
+                center_x, center_y = hex_to_pixel(q, r)
+                
+                # 获取该六边形的颜色
+                glow_color = None
+                if mapper and indices:
+                    first_idx = indices[0]
+                    if first_idx < len(metadata):
+                        cat_id = metadata[first_idx].get('category', '')
+                        glow_color = mapper.get_color_for_catid(cat_id)
+                
+                if glow_color is None:
+                    glow_color = QColor(128, 128, 128)  # 默认灰色
+                
+                # 光晕半径：对数增长，最大不超过hex_size * 0.8
+                max_radius = self.hex_size * 0.8
+                if N <= 100:
+                    # 10-100: 线性增长
+                    radius = max_radius * (0.3 + 0.5 * (N - 10) / 90)
+                else:
+                    # >100: 对数增长
+                    import math
+                    radius = max_radius * (0.8 + 0.2 * math.log10(N / 100))
+                    radius = min(radius, max_radius)
+                
+                # 光晕Alpha：随密度增加，范围30-60
+                alpha = int(30 + 30 * min(1.0, N / 100))
+                
+                self.density_glows.append((center_x, center_y, radius, glow_color, alpha))
+        
+        # 转换为numpy数组
+        if representative_points_list:
+            import numpy as np
+            self.representative_points = np.array(representative_points_list)
+            self.representative_indices = representative_indices_list
+        else:
+            self.representative_points = None
+            self.representative_indices = []
     
     def set_highlighted_indices(self, indices):
         self.highlighted_indices = indices
@@ -604,48 +753,70 @@ class DetailScatterLayer(QGraphicsItem):
         return QRectF(-50000, -50000, 100000, 100000)
         
     def paint(self, painter, option, widget):
-        if not self.visible or self.points is None:
-            return
-            
-        # 视口裁剪
-        clip_rect = option.exposedRect
-        x1, y1, x2, y2 = clip_rect.left(), clip_rect.top(), clip_rect.right(), clip_rect.bottom()
-        
-        # Numpy 裁剪
-        mask = (self.points[:,0] >= x1) & (self.points[:,0] <= x2) & \
-               (self.points[:,1] >= y1) & (self.points[:,1] <= y2)
-        visible_points = self.points[mask]
-        visible_indices = np.where(mask)[0]
-        
-        if len(visible_points) == 0: 
+        if not self.visible:
             return
         
         painter.setRenderHint(QPainter.Antialiasing)
         
-        # 分离高亮点和普通点
-        highlighted_mask = np.isin(visible_indices, list(self.highlighted_indices))
-        highlighted_points = visible_points[highlighted_mask]
-        normal_points = visible_points[~highlighted_mask]
+        # 视口裁剪
+        clip_rect = option.exposedRect
+        x1, y1, x2, y2 = clip_rect.left(), clip_rect.top(), clip_rect.right(), clip_rect.bottom()
         
-        # 修复方点问题：使用 RoundCap
-        if len(normal_points) > 0:
-            pen = QPen(QColor(255, 255, 255, 200))
-            pen.setWidthF(4.0)  # 点的大小
-            pen.setCapStyle(Qt.RoundCap)  # 圆点！
-            painter.setPen(pen)
+        # 1. 绘制密度光晕（QRadialGradient）
+        for center_x, center_y, radius, glow_color, alpha in self.density_glows:
+            # 检查光晕是否在视口内
+            if (center_x + radius < x1 or center_x - radius > x2 or
+                center_y + radius < y1 or center_y - radius > y2):
+                continue
             
-            # 批量绘制
-            qpoints = [QPointF(p[0], p[1]) for p in normal_points]
-            painter.drawPoints(qpoints)
+            # 创建径向渐变
+            gradient = QRadialGradient(center_x, center_y, radius)
+            center_color = QColor(glow_color)
+            center_color.setAlpha(alpha)
+            edge_color = QColor(glow_color)
+            edge_color.setAlpha(0)  # 边缘透明
+            
+            gradient.setColorAt(0.0, center_color)
+            gradient.setColorAt(1.0, edge_color)
+            
+            # 绘制光晕
+            painter.setPen(QPen(Qt.PenStyle.NoPen))
+            painter.setBrush(QBrush(gradient))
+            painter.drawEllipse(QPointF(center_x, center_y), radius, radius)
         
-        # 绘制高亮点（白色，更大）
-        if len(highlighted_points) > 0:
-            pen = QPen(QColor(255, 255, 255, 255))
-            pen.setWidthF(6.0)
-            pen.setCapStyle(Qt.RoundCap)
-            painter.setPen(pen)
-            qpoints = [QPointF(p[0], p[1]) for p in highlighted_points]
-            painter.drawPoints(qpoints)
+        # 2. 绘制代表点
+        if self.representative_points is not None and len(self.representative_points) > 0:
+            # Numpy 裁剪
+            mask = (self.representative_points[:,0] >= x1) & (self.representative_points[:,0] <= x2) & \
+                   (self.representative_points[:,1] >= y1) & (self.representative_points[:,1] <= y2)
+            visible_points = self.representative_points[mask]
+            visible_indices = [self.representative_indices[i] for i in np.where(mask)[0]]
+            
+            if len(visible_points) > 0:
+                # 分离高亮点和普通点
+                highlighted_mask = np.isin(visible_indices, list(self.highlighted_indices))
+                highlighted_points = visible_points[highlighted_mask]
+                normal_points = visible_points[~highlighted_mask]
+                
+                # 绘制普通点
+                if len(normal_points) > 0:
+                    pen = QPen(QColor(255, 255, 255, 200))
+                    pen.setWidthF(4.0)  # 点的大小
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)  # 圆点！
+                    painter.setPen(pen)
+                    
+                    # 批量绘制
+                    qpoints = [QPointF(p[0], p[1]) for p in normal_points]
+                    painter.drawPoints(qpoints)
+                
+                # 绘制高亮点（白色，更大）
+                if len(highlighted_points) > 0:
+                    pen = QPen(QColor(255, 255, 255, 255))
+                    pen.setWidthF(6.0)
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    painter.setPen(pen)
+                    qpoints = [QPointF(p[0], p[1]) for p in highlighted_points]
+                    painter.drawPoints(qpoints)
         
     def update_lod(self, zoom):
         # LOD 2: 只有放大到细节状态才显示散点
@@ -656,8 +827,15 @@ class DetailScatterLayer(QGraphicsItem):
 class SonicUniverse(QGraphicsScene):
     """Sonic Universe 可视化场景 - 修复版"""
     
+    # 信号定义
+    assets_selected = Signal(list)  # 传递metadata列表
+    
     def __init__(self, metadata, embeddings, coords_2d=None, hex_size=50.0, search_core=None, ucs_manager=None, parent=None):
         super().__init__(parent)
+        
+        # 设置场景背景色（深色背景）
+        self.setBackgroundBrush(QColor('#0B0C0E'))
+        
         self.metadata = metadata
         self.embeddings = embeddings
         self.hex_size = float(hex_size)
@@ -667,11 +845,16 @@ class SonicUniverse(QGraphicsScene):
         # 坐标处理
         self.coords_2d = coords_2d
         if self.coords_2d is None:
+            print("[WARNING] coords_2d 为 None，使用随机坐标作为后备")
             # Fallback for safety
             self.coords_2d = np.random.rand(len(metadata), 2) * 10000
+        else:
+            print(f"[DEBUG] SonicUniverse 初始化: coords_2d shape={self.coords_2d.shape}, range=[{self.coords_2d.min(axis=0)}, {self.coords_2d.max(axis=0)}]")
         
         # 归一化坐标
         self._normalize_coordinates()
+        if hasattr(self, 'norm_coords') and self.norm_coords is not None:
+            print(f"[DEBUG] 归一化后: norm_coords shape={self.norm_coords.shape}, range=[{self.norm_coords.min(axis=0)}, {self.norm_coords.max(axis=0)}]")
         
         # 构建空间索引 (用于极速点击检测) - 将在 _build_scene_data 中使用最终显示坐标构建
         self.tree = None
@@ -699,7 +882,9 @@ class SonicUniverse(QGraphicsScene):
         self.current_zoom = 1.0
         
         # 构建网格
+        print("[DEBUG] 开始调用 _build_scene_data...")
         self._build_scene_data()
+        print(f"[DEBUG] _build_scene_data 完成，场景矩形: {self.sceneRect()}")
     
     def _normalize_coordinates(self):
         """归一化坐标到紧凑画布范围（3000x3000）"""
@@ -782,7 +967,10 @@ class SonicUniverse(QGraphicsScene):
     def _build_scene_data(self):
         """完全基于数据生成网格，杜绝空蜂窝"""
         if not hasattr(self, 'norm_coords') or self.norm_coords is None or len(self.norm_coords) == 0:
+            print(f"[ERROR] _build_scene_data: norm_coords 无效! hasattr={hasattr(self, 'norm_coords')}, is None={self.norm_coords is None if hasattr(self, 'norm_coords') else 'N/A'}, len={len(self.norm_coords) if hasattr(self, 'norm_coords') and self.norm_coords is not None else 0}")
             return
+
+        print(f"[DEBUG] _build_scene_data: 开始构建，norm_coords shape={self.norm_coords.shape}")
 
         # 2. 只有"有数据"的地方才会有蜂窝
         grid_map = {}  # (q, r) -> [indices]
@@ -793,34 +981,92 @@ class SonicUniverse(QGraphicsScene):
                 grid_map[(q, r)] = []
             grid_map[(q, r)].append(idx)
         
-        # 3. 规整化散点坐标（防止重叠和落在缝隙中）
-        constrained_scatter_coords = self._constrain_points_to_hex(self.norm_coords)
+        print(f"[DEBUG] _build_scene_data: 构建完成，grid_map 包含 {len(grid_map)} 个六边形")
         
-        # 存储最终的显示坐标（用于点击检测）
-        self.current_display_coords = constrained_scatter_coords
+        # 3. 不再使用向日葵螺旋规整化（废弃）
+        # 保留原始坐标用于点击检测，代表点系统会处理显示
         
-        # 4. 使用最终显示坐标构建空间索引（确保点击检测与渲染一致）
-        if SCIPY_AVAILABLE and len(constrained_scatter_coords) > 0:
-            self.tree = cKDTree(constrained_scatter_coords)
+        # 存储原始坐标（用于点击检测）
+        self.current_display_coords = self.norm_coords
+        
+        # 4. 使用原始坐标构建空间索引（用于点击检测）
+        if SCIPY_AVAILABLE and len(self.norm_coords) > 0:
+            self.tree = cKDTree(self.norm_coords)
             
         # 5. 传递数据给图层
-        self.hex_layer.set_data(grid_map, self.metadata, self.norm_coords)
-        self.scatter_layer.set_data(constrained_scatter_coords, self.metadata)
+        print(f"[DEBUG] _build_scene_data: 准备传递数据给图层...")
+        try:
+            self.hex_layer.set_data(grid_map, self.metadata, self.norm_coords)
+            print(f"[DEBUG] _build_scene_data: hex_layer.set_data 完成")
+        except Exception as e:
+            print(f"[ERROR] _build_scene_data: hex_layer.set_data 失败: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # 设置hex_size并传递hex_grid_data用于代表点系统
+        try:
+            self.scatter_layer.set_hex_size(self.hex_size)
+            self.scatter_layer.set_data(self.norm_coords, self.metadata, grid_map)
+            print(f"[DEBUG] _build_scene_data: scatter_layer.set_data 完成")
+        except Exception as e:
+            print(f"[ERROR] _build_scene_data: scatter_layer.set_data 失败: {e}")
+            import traceback
+            traceback.print_exc()
         
         # 6. 自动调整相机范围（基于实际数据坐标）
-        if len(self.norm_coords) > 0:
-            min_x, min_y = self.norm_coords.min(axis=0)
-            max_x, max_y = self.norm_coords.max(axis=0)
-            margin = 500.0
-            rect = QRectF(
-                min_x - margin, min_y - margin,
-                max_x - min_x + 2 * margin,
-                max_y - min_y + 2 * margin
-            )
-            self.setSceneRect(rect)
+        print(f"[DEBUG] _build_scene_data: 准备设置场景矩形，norm_coords len={len(self.norm_coords)}")
+        try:
+            if len(self.norm_coords) > 0:
+                min_coords = self.norm_coords.min(axis=0)
+                max_coords = self.norm_coords.max(axis=0)
+                # 转换为 Python float（numpy 数组需要转换）
+                min_x = float(min_coords[0])
+                min_y = float(min_coords[1])
+                max_x = float(max_coords[0])
+                max_y = float(max_coords[1])
+                print(f"[DEBUG] _build_scene_data: 坐标范围 min=({min_x}, {min_y}), max=({max_x}, {max_y})")
+                margin = 500.0
+                rect = QRectF(
+                    min_x - margin, min_y - margin,
+                    max_x - min_x + 2 * margin,
+                    max_y - min_y + 2 * margin
+                )
+                print(f"[DEBUG] _build_scene_data: 计算出的场景矩形 = {rect}")
+                self.setSceneRect(rect)
+                print(f"[DEBUG] 设置场景矩形: {rect}")
+                print(f"[DEBUG] 验证场景矩形: {self.sceneRect()}")
+            else:
+                # 如果没有数据，使用默认范围（匹配归一化坐标范围 0-3000，加上边距）
+                print("[WARNING] norm_coords 为空，使用默认场景矩形")
+                self.setSceneRect(0, 0, 3500, 3500)
+                print(f"[DEBUG] 设置默认场景矩形: {self.sceneRect()}")
+        except Exception as e:
+            print(f"[ERROR] _build_scene_data: 设置场景矩形时出错: {e}")
+            import traceback
+            traceback.print_exc()
+            # 使用默认场景矩形
+            self.setSceneRect(0, 0, 3500, 3500)
         else:
             # 如果没有数据，使用默认范围（匹配归一化坐标范围 0-3000，加上边距）
+            print("[WARNING] norm_coords 为空，使用默认场景矩形")
             self.setSceneRect(0, 0, 3500, 3500)
+            print(f"[DEBUG] 设置默认场景矩形: {self.sceneRect()}")
+    
+    def mousePressEvent(self, event):
+        """处理鼠标点击，检测点击的六边形"""
+        scene_pos = event.scenePos()
+        q, r = self._pixel_to_hex(scene_pos.x(), scene_pos.y())
+        
+        # 检查是否点击了有数据的六边形
+        if hasattr(self, 'hex_layer') and (q, r) in self.hex_layer.grid_data:
+            indices = self.hex_layer.grid_data[(q, r)]
+            metadata_list = [self.metadata[i] for i in indices if i < len(self.metadata)]
+            
+            # 发射信号
+            if metadata_list:
+                self.assets_selected.emit(metadata_list)
+        
+        super().mousePressEvent(event)
     
     def _pixel_to_hex(self, x, y):
         size = self.hex_size

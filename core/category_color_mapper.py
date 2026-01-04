@@ -162,16 +162,43 @@ class CategoryColorMapper:
         self.category_colors[category] = color
         return color
     
-    def get_color_for_catid(self, catid: Optional[str]) -> QColor:
+    def get_color_for_catid(self, catid: Optional[str], filename: Optional[str] = None) -> QColor:
         """
         根据 CatID 获取颜色（通过 Category）
         
         Args:
             catid: CatID（如 "AMBForst"）
+            filename: 文件名（用于fallback颜色生成）
             
         Returns:
             QColor 对象
         """
         category = self.get_category_from_catid(catid)
-        return self.get_color_for_category(category)
+        if category:
+            return self.get_color_for_category(category)
+        
+        # Fallback: 如果无法映射，使用文件名hash生成颜色
+        if filename:
+            return self._generate_hash_color(filename)
+        
+        # 最后的fallback: 使用catid本身生成颜色
+        if catid:
+            return self._generate_hash_color(catid)
+        
+        # 默认深灰色
+        return QColor('#333333')
+    
+    def _generate_hash_color(self, text: str) -> QColor:
+        """
+        基于文本hash生成颜色（fallback）
+        
+        Args:
+            text: 文本（文件名或catid）
+            
+        Returns:
+            QColor 对象
+        """
+        hash_value = int(hashlib.md5(text.encode('utf-8')).hexdigest(), 16)
+        hue = (hash_value * self.GOLDEN_RATIO) % 1.0
+        return QColor.fromHsvF(hue, self.FIXED_SATURATION, self.FIXED_VALUE)
 

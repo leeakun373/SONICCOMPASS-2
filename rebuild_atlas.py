@@ -111,8 +111,8 @@ def rebuild():
     
     reducer = umap.UMAP(
         n_components=2,
-        n_neighbors=15,       # 降低内存消耗，防止19GB报错
-        min_dist=0.1,         # 内部点分布稍微紧凑
+        n_neighbors=30,       # 从15改为30，增强全局结构，形成紧密大陆
+        min_dist=0.01,        # 从0.1改为0.01，允许紧密堆积，减少缝隙
         spread=1.0,           # 限制扩散范围
         metric='cosine',      # 使用余弦相似度（对音频语义更好）
         target_weight=0.7,    # 强制形成大陆板块，允许30%语义漂移

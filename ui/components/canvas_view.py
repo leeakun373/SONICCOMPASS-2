@@ -83,28 +83,44 @@ class CanvasView(QGraphicsView):
         """适配场景到视图（初始化时调用）"""
         scene = self.scene()
         if scene is None:
+            print("[DEBUG] fit_scene_to_view: scene is None")
             return
         
         # 使用场景的 sceneRect 而不是 itemsBoundingRect，更可靠
         scene_rect = scene.sceneRect()
+        print(f"[DEBUG] fit_scene_to_view: sceneRect = {scene_rect}")
+        
         if scene_rect.isEmpty():
             # 如果 sceneRect 为空，尝试使用 itemsBoundingRect
+            print("[DEBUG] fit_scene_to_view: sceneRect is empty, trying itemsBoundingRect")
             scene_rect = scene.itemsBoundingRect()
+            print(f"[DEBUG] fit_scene_to_view: itemsBoundingRect = {scene_rect}")
         
         if not scene_rect.isEmpty() and scene_rect.width() > 0 and scene_rect.height() > 0:
             # 添加 10% padding
             padding_x = scene_rect.width() * 0.1
             padding_y = scene_rect.height() * 0.1
             scene_rect.adjust(-padding_x, -padding_y, padding_x, padding_y)
+            print(f"[DEBUG] fit_scene_to_view: adjusted rect = {scene_rect}")
             
             # 重置变换矩阵，然后适配视图
             self.resetTransform()
+            viewport_rect = self.viewport().rect()
+            print(f"[DEBUG] fit_scene_to_view: viewport size = {viewport_rect.width()}x{viewport_rect.height()}")
+            
             self.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
             
+            # 检查适配结果
+            transform = self.transform()
+            print(f"[DEBUG] fit_scene_to_view: transform matrix = m11={transform.m11()}, m22={transform.m22()}")
+            
             # 通知 LOD 更新
-            zoom_level = self.transform().m11()
+            zoom_level = transform.m11()
             if zoom_level > 0:
                 self.zoom_changed.emit(zoom_level)
+                print(f"[DEBUG] fit_scene_to_view: zoom_level = {zoom_level}")
+        else:
+            print(f"[WARNING] fit_scene_to_view: scene_rect is invalid! isEmpty={scene_rect.isEmpty()}, width={scene_rect.width()}, height={scene_rect.height()}")
     
     def wheelEvent(self, event):
         """鼠标滚轮缩放（带 min/max 限制）"""

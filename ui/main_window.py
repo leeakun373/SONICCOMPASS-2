@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QLineEdit, QCheckBox, QFrame, QProgressBar,
     QFileDialog, QMessageBox
 )
-from PySide6.QtCore import QThread, Signal as QtSignal
+from PySide6.QtCore import QThread, Signal as QtSignal, Signal
 from PySide6.QtCore import Qt, QRectF
 
 from ui.components import CanvasView, SearchBar, InspectorPanel, UniversalTagger
@@ -19,6 +19,244 @@ from ui.visualizer import SonicUniverse
 from ui.styles import GLOBAL_STYLESHEET
 from core import DataProcessor, SearchCore, VectorEngine, UCSManager
 from data import SoundminerImporter, ConfigManager
+
+
+class UMAPRecalcThread(QThread):
+    """UMAP重新计算线程 - 仅重新计算坐标，使用现有向量缓存"""
+    
+    progress_signal = Signal(int, str)  # 进度(%), 描述
+    finished_signal = Signal()  # 仅通知完成
+    error_signal = Signal(str)  # 错误信息
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.result_data = None  # 存储计算结果，主线程读取
+    
+    def run(self):
+        """执行UMAP重新计算流程"""
+        try:
+            self.progress_signal.emit(5, "Checking cache...")
+            
+            # 初始化组件
+            from core import UCSManager
+            ucs_manager = UCSManager()
+            ucs_manager.load_all()
+            
+            from data import SoundminerImporter
+            importer = SoundminerImporter(
+                db_path="./test_assets/Sonic.sqlite",
+                ucs_manager=ucs_manager
+            )
+            
+            vector_engine = VectorEngine(model_path="./models/bge-m3")
+            
+            # 创建处理器
+            processor = DataProcessor(
+                importer=importer,
+                vector_engine=vector_engine,
+                cache_dir="./cache"
+            )
+            
+            # 检查缓存是否存在
+            if not processor._cache_exists():
+                raise ValueError("向量缓存不存在，请先运行完整重建")
+            
+            # 加载现有向量和元数据（不重新计算）
+            self.progress_signal.emit(10, "Loading existing vectors...")
+            metadata, embeddings = processor.load_index()
+            
+            # 提取 Category 并编码
+            self.progress_signal.emit(30, "Encoding categories...")
+            try:
+                from core.category_color_mapper import CategoryColorMapper
+                mapper = CategoryColorMapper()
+            except Exception:
+                mapper = None
+            
+            categories = []
+            for meta in metadata:
+                cat_id = meta.get('category', '')
+                if mapper:
+                    category = mapper.get_category_from_catid(cat_id)
+                    if not category:
+                        category = "UNCATEGORIZED"
+                else:
+                    category = "UNCATEGORIZED"
+                categories.append(category)
+            
+            # 使用 LabelEncoder 编码
+            from sklearn.preprocessing import LabelEncoder
+            label_encoder = LabelEncoder()
+            targets = label_encoder.fit_transform(categories)
+            
+            # Supervised UMAP (使用新参数)
+            self.progress_signal.emit(50, "Computing UMAP coordinates...")
+            import umap
+            import numpy as np
+            
+            reducer = umap.UMAP(
+                n_components=2,
+                n_neighbors=30,  # 从15改为30，增强全局结构
+                min_dist=0.01,   # 从0.1改为0.01，允许紧密堆积
+                spread=1.0,
+                metric='cosine',
+                target_weight=0.7,
+                target_metric='categorical',
+                random_state=42,
+                n_jobs=1
+            )
+            coords_2d = reducer.fit_transform(embeddings, y=targets)
+            
+            # 坐标归一化到 0-3000
+            min_coords = coords_2d.min(axis=0)
+            max_coords = coords_2d.max(axis=0)
+            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
+            coords_2d = (coords_2d - min_coords) * scale
+            
+            # 存储结果
+            self.result_data = {
+                'metadata': metadata,
+                'coords_2d': coords_2d,
+                'embeddings': embeddings,
+                'processor': processor
+            }
+            
+            self.progress_signal.emit(100, "Complete")
+            self.finished_signal.emit()
+            
+        except Exception as e:
+            error_msg = str(e)
+            import traceback
+            traceback.print_exc()
+            self.error_signal.emit(error_msg)
+
+
+class AtlasBuilderThread(QThread):
+    """Atlas构建线程 - 将rebuild流程完全异步化"""
+    
+    progress_signal = Signal(int, str)  # 进度(%), 描述
+    finished_signal = Signal()  # 仅通知完成，不传递数据（避免内存拷贝）
+    error_signal = Signal(str)  # 错误信息
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.result_data = None  # 存储构建结果，主线程读取
+    
+    def run(self):
+        """执行构建流程"""
+        try:
+            self.progress_signal.emit(5, "Initializing components...")
+            
+            # 初始化组件
+            from core import UCSManager
+            ucs_manager = UCSManager()
+            ucs_manager.load_all()
+            
+            from data import SoundminerImporter
+            importer = SoundminerImporter(
+                db_path="./test_assets/Sonic.sqlite",
+                ucs_manager=ucs_manager
+            )
+            
+            vector_engine = VectorEngine(model_path="./models/bge-m3")
+            
+            # 创建处理器
+            processor = DataProcessor(
+                importer=importer,
+                vector_engine=vector_engine,
+                cache_dir="./cache"
+            )
+            
+            # 连接进度信号（转发到主线程）
+            # 注意：processor.progress_signal在子线程中，需要手动转发
+            # 由于Signal/Slot的线程安全机制，这里直接连接即可
+            if hasattr(processor, 'progress_signal'):
+                def forward_progress(value, desc):
+                    # 将processor的进度映射到rebuild的总体进度
+                    # build_index占70%，UMAP占30%
+                    if value <= 80:
+                        mapped_value = int(5 + (value / 80) * 65)  # 5-70
+                    else:
+                        mapped_value = int(70 + ((value - 80) / 20) * 30)  # 70-100
+                    self.progress_signal.emit(mapped_value, desc)
+                
+                # 使用Qt.QueuedConnection确保线程安全
+                processor.progress_signal.connect(forward_progress, Qt.ConnectionType.QueuedConnection)
+            
+            # 构建索引（向量化）
+            self.progress_signal.emit(10, "Building index...")
+            metadata, embeddings = processor.build_index(
+                limit=None,
+                force_rebuild=True
+            )
+            
+            # 计算 Supervised UMAP 坐标
+            self.progress_signal.emit(70, "Computing UMAP coordinates...")
+            
+            import umap
+            from sklearn.preprocessing import LabelEncoder
+            import numpy as np
+            
+            # 提取 Category 并编码
+            try:
+                from core.category_color_mapper import CategoryColorMapper
+                mapper = CategoryColorMapper()
+            except Exception:
+                mapper = None
+            
+            categories = []
+            for meta in metadata:
+                cat_id = meta.get('category', '')
+                if mapper:
+                    category = mapper.get_category_from_catid(cat_id)
+                    if not category:
+                        category = "UNCATEGORIZED"
+                else:
+                    category = "UNCATEGORIZED"
+                categories.append(category)
+            
+            # 使用 LabelEncoder 编码
+            label_encoder = LabelEncoder()
+            targets = label_encoder.fit_transform(categories)
+            
+            # Supervised UMAP (更新参数)
+            reducer = umap.UMAP(
+                n_components=2,
+                n_neighbors=30,  # 从15改为30，增强全局结构
+                min_dist=0.01,   # 从0.1改为0.01，允许紧密堆积
+                spread=1.0,
+                metric='cosine',
+                target_weight=0.7,
+                target_metric='categorical',
+                random_state=42,
+                n_jobs=1
+            )
+            coords_2d = reducer.fit_transform(embeddings, y=targets)
+            
+            # 坐标归一化到 0-3000
+            min_coords = coords_2d.min(axis=0)
+            max_coords = coords_2d.max(axis=0)
+            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
+            coords_2d = (coords_2d - min_coords) * scale
+            
+            # 存储结果
+            self.result_data = {
+                'metadata': metadata,
+                'coords_2d': coords_2d,
+                'embeddings': embeddings,
+                'processor': processor
+            }
+            
+            self.progress_signal.emit(100, "Complete")
+            # 只发射完成信号，不传递数据
+            self.finished_signal.emit()
+            
+        except Exception as e:
+            error_msg = str(e)
+            import traceback
+            traceback.print_exc()
+            self.error_signal.emit(error_msg)
+
 
 class SonicCompassMainWindow(QMainWindow):
     """Sonic Compass 主窗口"""
@@ -283,9 +521,9 @@ class SonicCompassMainWindow(QMainWindow):
         
         layout.addSpacing(10)
         
-        # Rebuild Atlas 按钮
-        rebuild_btn = QPushButton("🔄 Rebuild Atlas")
-        rebuild_btn.setStyleSheet("""
+        # Rebuild Atlas 按钮（完整重建）
+        self.rebuild_btn = QPushButton("🔄 Rebuild Atlas (Full)")
+        self.rebuild_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(255, 107, 107, 0.2);
                 color: #FF6B6B;
@@ -297,9 +535,35 @@ class SonicCompassMainWindow(QMainWindow):
             QPushButton:hover {
                 background-color: rgba(255, 107, 107, 0.3);
             }
+            QPushButton:disabled {
+                background-color: rgba(100, 100, 100, 0.2);
+                color: #666;
+            }
         """)
-        rebuild_btn.clicked.connect(self._rebuild_atlas)
-        layout.addWidget(rebuild_btn)
+        self.rebuild_btn.clicked.connect(self._rebuild_atlas)
+        layout.addWidget(self.rebuild_btn)
+        
+        # Recalculate UMAP 按钮（仅重新计算坐标）
+        self.recalc_umap_btn = QPushButton("🔄 Recalc UMAP Only")
+        self.recalc_umap_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(94, 106, 210, 0.2);
+                color: #5E6AD2;
+                border: 1px solid rgba(94, 106, 210, 0.3);
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: rgba(94, 106, 210, 0.3);
+            }
+            QPushButton:disabled {
+                background-color: rgba(100, 100, 100, 0.2);
+                color: #666;
+            }
+        """)
+        self.recalc_umap_btn.clicked.connect(self._recalculate_umap_only)
+        layout.addWidget(self.recalc_umap_btn)
         
         layout.addStretch()
         
@@ -375,6 +639,8 @@ class SonicCompassMainWindow(QMainWindow):
             coords_2d = self.processor.load_coordinates()
             if coords_2d is None:
                 print("[WARNING] 未找到预计算的坐标，将在初始化时计算")
+            else:
+                print(f"[DEBUG] 加载坐标: shape={coords_2d.shape}, range=[{coords_2d.min(axis=0)}, {coords_2d.max(axis=0)}]")
             
             # 创建搜索核心
             self.search_core = SearchCore(
@@ -384,6 +650,7 @@ class SonicCompassMainWindow(QMainWindow):
             )
             
             # 创建可视化场景
+            print(f"[DEBUG] 创建可视化场景: metadata={len(metadata)}, embeddings={embeddings.shape}, coords_2d={coords_2d.shape if coords_2d is not None else None}")
             self.visualizer = SonicUniverse(
                 metadata,
                 embeddings,
@@ -394,9 +661,36 @@ class SonicCompassMainWindow(QMainWindow):
             )
             self.canvas_view.setScene(self.visualizer)
             
+            # 检查场景矩形
+            scene_rect = self.visualizer.sceneRect()
+            print(f"[DEBUG] 场景矩形: {scene_rect}")
+            if hasattr(self.visualizer, 'norm_coords') and self.visualizer.norm_coords is not None:
+                print(f"[DEBUG] norm_coords: shape={self.visualizer.norm_coords.shape}, range=[{self.visualizer.norm_coords.min(axis=0)}, {self.visualizer.norm_coords.max(axis=0)}]")
+            
             # 使用 fit_scene_to_view 方法适配视图（包含 10% padding）
             # 这个方法内部会处理场景矩形和视图适配
+            scene_rect_before = self.visualizer.sceneRect()
+            print(f"[DEBUG] 适配前场景矩形: {scene_rect_before}")
+            print(f"[DEBUG] 视图大小: {self.canvas_view.width()}x{self.canvas_view.height()}")
+            
             self.canvas_view.fit_scene_to_view()
+            
+            # 再次检查场景矩形（适配后）
+            scene_rect_after = self.visualizer.sceneRect()
+            print(f"[DEBUG] 适配后场景矩形: {scene_rect_after}")
+            print(f"[DEBUG] 视图变换矩阵: {self.canvas_view.transform()}")
+            
+            # 检查图层边界框
+            if hasattr(self.visualizer, 'hex_layer'):
+                hex_bbox = self.visualizer.hex_layer.boundingRect()
+                print(f"[DEBUG] HexLayer boundingRect: {hex_bbox}")
+            if hasattr(self.visualizer, 'scatter_layer'):
+                scatter_bbox = self.visualizer.scatter_layer.boundingRect()
+                print(f"[DEBUG] ScatterLayer boundingRect: {scatter_bbox}")
+            
+            # 强制更新视图（确保场景可见）
+            self.canvas_view.update()
+            self.canvas_view.viewport().update()
             
             # 设置画布交互
             self._setup_canvas_interaction()
@@ -445,7 +739,7 @@ class SonicCompassMainWindow(QMainWindow):
                 self.status_label.setText(f"Error saving library path: {str(e)}")
     
     def _rebuild_atlas(self):
-        """重建星图"""
+        """重建星图（完整流程：向量化+UMAP）"""
         # 确认对话框
         reply = QMessageBox.question(
             self,
@@ -465,124 +759,149 @@ class SonicCompassMainWindow(QMainWindow):
         self.progress_label.setText("Initializing rebuild...")
         self.status_label.setText("Rebuilding atlas...")
         
+        # 禁用按钮
+        if hasattr(self, 'rebuild_btn'):
+            self.rebuild_btn.setEnabled(False)
+        if hasattr(self, 'recalc_umap_btn'):
+            self.recalc_umap_btn.setEnabled(False)
+        
+        # 创建并启动线程
+        self.atlas_builder_thread = AtlasBuilderThread()
+        self.atlas_builder_thread.progress_signal.connect(self._on_progress_updated)
+        self.atlas_builder_thread.finished_signal.connect(self._on_atlas_built)
+        self.atlas_builder_thread.error_signal.connect(self._on_atlas_error)
+        self.atlas_builder_thread.start()
+    
+    def _on_atlas_built(self):
+        """处理构建完成"""
         try:
-            # 初始化组件
-            from core import UCSManager
-            ucs_manager = UCSManager()
-            ucs_manager.load_all()
-            
-            from data import SoundminerImporter
-            importer = SoundminerImporter(
-                db_path="./test_assets/Sonic.sqlite",
-                ucs_manager=ucs_manager
-            )
-            
-            vector_engine = VectorEngine(model_path="./models/bge-m3")
-            
-            # 创建处理器
-            processor = DataProcessor(
-                importer=importer,
-                vector_engine=vector_engine,
-                cache_dir="./cache"
-            )
-            
-            # 连接进度信号
-            if hasattr(processor, 'progress_signal'):
-                processor.progress_signal.connect(self._on_progress_updated)
-            
-            # 构建索引（向量化）
-            metadata, embeddings = processor.build_index(
-                limit=None,
-                force_rebuild=True
-            )
-            
-            # 计算 Supervised UMAP 坐标
-            self.progress_label.setText("Computing UMAP coordinates...")
-            self.progress_bar.setValue(70)
-            
-            import umap
-            from sklearn.preprocessing import LabelEncoder
-            import numpy as np
-            
-            # 提取 Category 并编码
-            try:
-                from core.category_color_mapper import CategoryColorMapper
-                mapper = CategoryColorMapper()
-            except Exception:
-                mapper = None
-            
-            categories = []
-            for meta in metadata:
-                cat_id = meta.get('category', '')
-                if mapper:
-                    category = mapper.get_category_from_catid(cat_id)
-                    if not category:
-                        category = "UNCATEGORIZED"
-                else:
-                    category = "UNCATEGORIZED"
-                categories.append(category)
-            
-            # 使用 LabelEncoder 编码
-            label_encoder = LabelEncoder()
-            targets = label_encoder.fit_transform(categories)
-            
-            # Supervised UMAP
-            reducer = umap.UMAP(
-                n_components=2,
-                n_neighbors=15,
-                min_dist=0.1,
-                spread=1.0,
-                metric='cosine',
-                target_weight=0.7,
-                target_metric='categorical',
-                random_state=42,
-                n_jobs=1
-            )
-            coords_2d = reducer.fit_transform(embeddings, y=targets)
-            
-            # 坐标归一化到 0-3000
-            min_coords = coords_2d.min(axis=0)
-            max_coords = coords_2d.max(axis=0)
-            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
-            coords_2d = (coords_2d - min_coords) * scale
+            # 从线程读取结果
+            result_data = self.atlas_builder_thread.result_data
+            if result_data is None:
+                raise ValueError("构建结果为空")
             
             # 保存坐标
-            processor.save_coordinates(coords_2d)
-            
-            self.progress_bar.setValue(100)
-            self.progress_label.setText("Complete")
+            if 'processor' in result_data:
+                result_data['processor'].save_coordinates(result_data['coords_2d'])
             
             # 重新加载数据
             self.status_label.setText("Reloading data...")
             self._load_data()
             
+            # 显示完成对话框
             QMessageBox.information(
                 self,
                 "Rebuild Complete",
-                f"星图重建完成！\n\n处理了 {len(metadata)} 条记录。"
+                f"星图重建完成！\n\n处理了 {len(result_data['metadata'])} 条记录。"
             )
-            
         except Exception as e:
-            self.status_label.setText(f"Rebuild error: {str(e)}")
-            QMessageBox.critical(
-                self,
-                "Rebuild Error",
-                f"重建失败：\n{str(e)}"
-            )
-            import traceback
-            traceback.print_exc()
+            self._on_atlas_error(str(e))
         finally:
-            # 隐藏进度条
+            # 恢复UI状态
             self.progress_bar.setVisible(False)
             self.progress_label.setVisible(False)
-            print(f"[ERROR] 数据加载失败: {e}")
-            import traceback
-            traceback.print_exc()
+            if hasattr(self, 'rebuild_btn'):
+                self.rebuild_btn.setEnabled(True)
+            if hasattr(self, 'recalc_umap_btn'):
+                self.recalc_umap_btn.setEnabled(True)
+            self.status_label.setText("Ready")
+    
+    def _on_atlas_error(self, error_msg: str):
+        """处理构建错误"""
+        self.status_label.setText(f"Rebuild error: {error_msg}")
+        QMessageBox.critical(
+            self,
+            "Rebuild Error",
+            f"重建失败：\n{error_msg}"
+        )
+        import traceback
+        traceback.print_exc()
+        
+        # 恢复UI状态
+        self.progress_bar.setVisible(False)
+        self.progress_label.setVisible(False)
+        if hasattr(self, 'rebuild_btn'):
+            self.rebuild_btn.setEnabled(True)
+        if hasattr(self, 'recalc_umap_btn'):
+            self.recalc_umap_btn.setEnabled(True)
+        self.status_label.setText("Ready")
+    
+    def _recalculate_umap_only(self):
+        """仅重新计算UMAP坐标（使用现有向量缓存）"""
+        # 确认对话框
+        reply = QMessageBox.question(
+            self,
+            "Recalculate UMAP",
+            "仅重新计算UMAP坐标（使用现有向量缓存）。\n\n这通常用于调整UMAP参数后快速更新坐标。\n\n是否继续？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        # 显示进度条
+        self.progress_bar.setVisible(True)
+        self.progress_label.setVisible(True)
+        self.progress_bar.setValue(0)
+        self.progress_label.setText("Initializing UMAP recalculation...")
+        self.status_label.setText("Recalculating UMAP...")
+        
+        # 禁用按钮
+        if hasattr(self, 'rebuild_btn'):
+            self.rebuild_btn.setEnabled(False)
+        if hasattr(self, 'recalc_umap_btn'):
+            self.recalc_umap_btn.setEnabled(False)
+        
+        # 创建并启动线程
+        self.umap_recalc_thread = UMAPRecalcThread()
+        self.umap_recalc_thread.progress_signal.connect(self._on_progress_updated)
+        self.umap_recalc_thread.finished_signal.connect(self._on_umap_recalc_complete)
+        self.umap_recalc_thread.error_signal.connect(self._on_atlas_error)
+        self.umap_recalc_thread.start()
+    
+    def _on_umap_recalc_complete(self):
+        """处理UMAP重新计算完成"""
+        try:
+            # 从线程读取结果
+            result_data = self.umap_recalc_thread.result_data
+            if result_data is None:
+                raise ValueError("计算结果为空")
+            
+            # 保存坐标
+            if 'processor' in result_data:
+                result_data['processor'].save_coordinates(result_data['coords_2d'])
+            
+            # 重新加载数据
+            self.status_label.setText("Reloading data...")
+            self._load_data()
+            
+            # 显示完成对话框
+            QMessageBox.information(
+                self,
+                "UMAP Recalculation Complete",
+                f"UMAP坐标重新计算完成！\n\n处理了 {len(result_data['metadata'])} 条记录。"
+            )
+        except Exception as e:
+            self._on_atlas_error(str(e))
+        finally:
+            # 恢复UI状态
+            self.progress_bar.setVisible(False)
+            self.progress_label.setVisible(False)
+            if hasattr(self, 'rebuild_btn'):
+                self.rebuild_btn.setEnabled(True)
+            if hasattr(self, 'recalc_umap_btn'):
+                self.recalc_umap_btn.setEnabled(True)
+            self.status_label.setText("Ready")
     
     def _setup_canvas_interaction(self):
         """修复后的画布交互逻辑"""
         if not self.visualizer:
             return
+        
+        # 连接assets_selected信号到InspectorPanel
+        if hasattr(self.visualizer, 'assets_selected'):
+            self.visualizer.assets_selected.connect(self.inspector.update_selection)
         
         original_mouse_press = self.visualizer.mousePressEvent
         

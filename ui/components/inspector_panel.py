@@ -203,6 +203,81 @@ class InspectorPanel(QScrollArea):
         
         self.layout.addStretch()
     
+    def update_selection(self, metadata_list: List[Dict]):
+        """
+        更新选择显示（支持单选和多选）
+        
+        Args:
+            metadata_list: 元数据列表，长度为1时显示详情，>1时显示列表
+        """
+        self.clear()
+        
+        if len(metadata_list) == 1:
+            # 单选：显示波形大图和详细属性
+            self.show_metadata(metadata_list[0])
+        else:
+            # 多选：显示紧凑列表
+            self._show_asset_list(metadata_list)
+    
+    def _show_asset_list(self, metadata_list: List[Dict]):
+        """显示资产列表（QListWidget）"""
+        from PySide6.QtWidgets import QListWidget, QListWidgetItem
+        
+        title = QLabel("INSPECTOR")
+        title_font = QFont("Segoe UI", 16, QFont.Weight.Bold)
+        title_font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
+        title.setFont(title_font)
+        title.setStyleSheet("color: #5E6AD2; text-transform: uppercase;")
+        self.layout.addWidget(title)
+        
+        # 显示数量信息
+        count_label = QLabel(f"<b>Selected:</b> {len(metadata_list)} items")
+        count_label.setStyleSheet("color: #8B9FFF; font-size: 14px; margin-bottom: 10px;")
+        self.layout.addWidget(count_label)
+        
+        # 创建列表控件
+        list_widget = QListWidget()
+        list_widget.setStyleSheet("""
+            QListWidget {
+                background-color: #1C1E24;
+                border: 1px solid #2A2D35;
+                border-radius: 4px;
+                color: #E1E4E8;
+                font-size: 12px;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #2A2D35;
+            }
+            QListWidget::item:hover {
+                background-color: #2A2D35;
+            }
+            QListWidget::item:selected {
+                background-color: #5E6AD2;
+                color: white;
+            }
+        """)
+        
+        # 添加列表项
+        for i, meta in enumerate(metadata_list):
+            filename = meta.get('filename') or meta.get('filepath', 'Unknown')
+            subcategory = meta.get('subcategory', 'N/A')
+            
+            # 创建列表项文本
+            item_text = f"{i+1}. {filename}"
+            if subcategory and subcategory != 'N/A':
+                item_text += f" [{subcategory}]"
+            
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.ItemDataRole.UserRole, meta)  # 存储metadata
+            list_widget.addItem(item)
+        
+        # 连接点击事件：点击列表项进入单选详情模式
+        list_widget.itemClicked.connect(lambda item: self.show_metadata(item.data(Qt.ItemDataRole.UserRole)))
+        
+        self.layout.addWidget(list_widget)
+        self.layout.addStretch()
+    
     def _build_library_tree(self, library_root: Optional[str], metadata_list: List[Dict]):
         """
         构建库文件树

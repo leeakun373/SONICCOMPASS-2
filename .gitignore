@@ -76,3 +76,6 @@ desktop.ini
 *.orig
 *.rej
 
+# 参考文件（不推送）
+参考/
+
