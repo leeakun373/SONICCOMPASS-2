@@ -277,50 +277,49 @@ class DataProcessor(QObject):
     
     def _extract_category(self, meta_dict: Dict) -> Optional[Tuple[str, str]]:
         """
-        三级仲裁逻辑 (Final Fix): 强规则 -> 显式检查 -> AI 向量
-        目标：始终返回 Category Code (e.g. 'WPN') 用于颜色映射
+        最终版：只负责找到最准确的 CatID (如 WPNGun)
+        不再做任何截断或信息丢失。
         """
-        cat_id = meta_dict.get('category', '').strip()
+        raw_cat = meta_dict.get('category', '').strip()
         rich_text = meta_dict.get('rich_context_text', '') or meta_dict.get('semantic_text', '')
         text_upper = rich_text.upper() if rich_text else ""
         
-        # --- Level 0: 强规则层 (The Hard Rule Layer) ---
-        # 解决 "Future Weapon" -> "Aircraft" 的问题
-        # 只要文件名里有这些词，直接锁定 Code，不给 AI 瞎猜的机会
+        # --- Level 0: 强规则 (返回 CatID 而不是 Code) ---
+        # 强规则映射到具体的 CatID，这样 LOD1 能显示具体子类
         STRONG_RULES = {
-            'WEAPON': 'WPN', 'GUN': 'WPN', 'FIREARM': 'WPN', 'EXPLOSION': 'WPN', 'BLAST': 'WPN',
-            'LASER': 'SCI', 'SCIFI': 'SCI', 'ROBOT': 'SCI', 'FUTURISTIC': 'SCI',
-            'MAGIC': 'MAG', 'SPELL': 'MAG', 'SORCERY': 'MAG',
-            'WATER': 'WAT', 'LIQUID': 'WAT', 'SPLASH': 'WAT', 'OCEAN': 'WAT',
-            'RAIN': 'WEA', 'THUNDER': 'WEA', 'STORM': 'WEA',
-            'WIND': 'AMB', 'AMBIENCE': 'AMB', 'ATMOSPHERE': 'AMB',
-            'FOOTSTEP': 'FOL', 'WALK': 'FOL', 'CLOTH': 'FOL',
-            'UI': 'UI', 'BUTTON': 'UI', 'CLICK': 'UI', 'INTERFACE': 'UI',
-            'AIRCRAFT': 'AERO', 'PLANE': 'AERO', 'JET': 'AERO', 'HELICOPTER': 'AERO'
+            'WEAPON': 'WPNMisc', 'GUN': 'WPNGun', 'EXPLOSION': 'WPNExpl', 'BLAST': 'WPNExpl',
+            'FIREARM': 'WPNGun', 'SHOT': 'WPNGun',
+            'LASER': 'SCILasr', 'SCIFI': 'SCIMisc', 'ROBOT': 'SCIMisc', 'FUTURISTIC': 'SCIMisc', 'CYBER': 'SCIMisc',
+            'MAGIC': 'MAGSpel', 'SPELL': 'MAGSpel', 'SORCERY': 'MAGSpel', 'SUPERNATURAL': 'MAGMisc',
+            'WATER': 'WATSplsh', 'LIQUID': 'WATSplsh', 'SPLASH': 'WATSplsh', 'OCEAN': 'WATWav', 'BUBBLE': 'WATBubbl',
+            'RAIN': 'WEARain', 'THUNDER': 'WEATundr', 'STORM': 'WEAStorm',
+            'WIND': 'AMBWind', 'AMBIENCE': 'AMBForst', 'ATMOSPHERE': 'AMBForst', 'FOREST': 'AMBForst', 'NATURE': 'AMBForst',
+            'FOOTSTEP': 'FOLFoot', 'WALK': 'FOLFoot', 'CLOTH': 'FOLCloth', 'MOVEMENT': 'FOLFoot',
+            'UI': 'UIUser', 'BUTTON': 'UIUser', 'CLICK': 'UIUser', 'INTERFACE': 'UIUser', 'MENU': 'UIUser',
+            'AIRCRAFT': 'AEROJet', 'PLANE': 'AEROJet', 'JET': 'AEROJet', 'HELICOPTER': 'AEROHeli',
+            'METAL': 'METLHit', 'METALLIC': 'METLHit', 'IMPACT': 'IMPTHit',
+            'WOOD': 'WOODHit', 'WOODEN': 'WOODHit',
+            'GLASS': 'GLASHit',
+            'VEHICLE': 'VEHEngn', 'CAR': 'VEHEngn', 'ENGINE': 'VEHEngn',
+            'VOICE': 'VOXShout', 'VOCAL': 'VOXShout', 'SHOUT': 'VOXShout',
+            'WHOOSH': 'SWSHWhoosh', 'SWISH': 'SWSHWhoosh'
         }
         
-        # 使用分词匹配 (Tokenization Check) 防止 "TRAIN" 匹配 "RAIN"
-        # 简单的做法是检查单词边界，或者直接检查包含
-        for keyword, code in STRONG_RULES.items():
+        # 检查强规则，直接返回 CatID
+        for keyword, target_id in STRONG_RULES.items():
             if keyword in text_upper:
-                # 命中强规则！直接返回 Code
-                return code, "GENERAL"
+                return target_id, ""  # 找到了就返回 CatID
 
-        # --- Level 1: 现有 Metadata 显式检查 ---
-        # 过滤垃圾分类
-        is_weak = False
-        if "MISC" in cat_id.upper(): 
-            is_weak = True
-        if cat_id.upper() in ['GEN', 'GENERAL', 'NONE', 'UNCATEGORIZED', '']: 
-            is_weak = True
-        
-        if not is_weak and cat_id and self.ucs_manager:
-            # 尝试解析 CatID (如 "AIRBlow")
-            info = self.ucs_manager.get_catid_info(cat_id)
-            if info and info.get('category_code'):
-                 return info['category_code'], info.get('subcategory_name', '')
+        # --- Level 1: 显式 Metadata ---
+        # 如果原始数据里有 AIRBlow，直接用
+        if raw_cat and "MISC" not in raw_cat.upper() and raw_cat.upper() != "UNCATEGORIZED":
+            if self.ucs_manager:
+                # 验证一下这是否是合法的 CatID
+                info = self.ucs_manager.get_catid_info(raw_cat)
+                if info:
+                    return raw_cat, ""  # 原样返回 CatID
 
-        # --- Level 3: AI 向量仲裁 (The Vector Layer) ---
+        # --- Level 2: AI 向量匹配 ---
         if not self.category_centroids:
             return "UNCATEGORIZED", ""
 
@@ -329,30 +328,21 @@ class DataProcessor(QObject):
 
         try:
             vector = self.vector_engine.encode(rich_text)
-        except:
-            return "UNCATEGORIZED", ""
+            best_cat_id = None
+            best_score = -1.0
             
-        best_cat_id = None
-        best_score = -1.0
-        
-        for cid, centroid in self.category_centroids.items():
-            score = np.dot(vector, centroid)
-            if score > best_score:
-                best_score = score
-                best_cat_id = cid
+            for cid, centroid in self.category_centroids.items():
+                score = np.dot(vector, centroid)
+                if score > best_score:
+                    best_score = score
+                    best_cat_id = cid
+            
+            if best_cat_id and best_score > 0.4:
+                return best_cat_id, ""  # 直接返回 WPNGun，不要截断！
                 
-        # 结果解析
-        if best_cat_id and best_score > 0.4:
-            if self.ucs_manager:
-                # 查表：从 CatID (e.g. 'AIRBlow') 查出 Code ('AIR')
-                info = self.ucs_manager.get_catid_info(best_cat_id)
-                if info and info.get('category_code'):
-                    return info['category_code'], info.get('subcategory_name', '')
-            
-            # 兜底：如果查不到表，但这看起来像是一个合法的 ID，取前三位大写
-            # 这能保证至少返回一个 Code，而不是 Name
-            return best_cat_id[:3].upper(), ""
-            
+        except Exception as e:
+            print(f"AI Arbitration Error: {e}")
+
         return "UNCATEGORIZED", ""
     
     def load_index(self) -> Tuple[List[Dict], np.ndarray]:

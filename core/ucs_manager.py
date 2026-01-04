@@ -307,23 +307,26 @@ class UCSManager:
         """
         根据 CatID (e.g. 'AIRBlow') 获取详细信息
         关键：必须返回 'category_code' (e.g. 'AIR')
+        确保返回的 subcategory_name 是大写的，好看点
         """
         if not cat_id:
             return None
 
+        info = None
+        
         # 1. 尝试直接查表 (如果 catid_lookup 存在)
         if hasattr(self, 'catid_lookup') and cat_id in self.catid_lookup:
-            info = self.catid_lookup[cat_id]
-            return {
-                'category_code': info.get('category', ''),  # CatShort (如 "AIR")
-                'category_name': info.get('name', '').split(' - ')[0] if ' - ' in info.get('name', '') else info.get('category', ''),
-                'subcategory_name': info.get('subcategory', '')
+            lookup_info = self.catid_lookup[cat_id]
+            info = {
+                'category_code': lookup_info.get('category', ''),  # CatShort (如 "AIR")
+                'category_name': lookup_info.get('name', '').split(' - ')[0] if ' - ' in lookup_info.get('name', '') else lookup_info.get('category', ''),
+                'subcategory_name': lookup_info.get('subcategory', '')
             }
         
         # 2. 尝试使用 catid_to_category (如果存在)
-        if hasattr(self, 'catid_to_category') and cat_id in self.catid_to_category:
+        elif hasattr(self, 'catid_to_category') and cat_id in self.catid_to_category:
             cat_obj = self.catid_to_category[cat_id]
-            return {
+            info = {
                 'category_code': cat_obj.cat_short,  # 这通常是 'AIR', 'WPN'
                 'category_name': cat_obj.category,
                 'subcategory_name': cat_obj.subcategory
@@ -331,13 +334,17 @@ class UCSManager:
 
         # 3. 如果表里没查到，但格式像 UCS (如 "WPNGun")
         # 盲猜前三位是 Code
-        if len(cat_id) >= 3 and cat_id[:3].isupper():
-            return {
+        elif len(cat_id) >= 3 and cat_id[:3].isupper():
+            info = {
                 'category_code': cat_id[:3],
                 'subcategory_name': cat_id[3:] if len(cat_id) > 3 else "GENERAL"
             }
+        
+        # 确保返回的 subcategory_name 是大写的
+        if info and info.get('subcategory_name'):
+            info['subcategory_name'] = info['subcategory_name'].upper()
             
-        return None
+        return info
     
     def get_category_by_catid(self, cat_id: str) -> Optional[UCSCategory]:
         """
