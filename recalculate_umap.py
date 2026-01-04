@@ -103,23 +103,14 @@ def recalculate_umap():
         print("   请先运行: python rebuild_atlas.py")
         sys.exit(1)
     
-    # 5. 提取 Category 并编码为标签
-    print("\n🏷️  提取 Category 标签...")
-    try:
-        from core.category_color_mapper import CategoryColorMapper
-        mapper = CategoryColorMapper()
-    except Exception as e:
-        print(f"[WARNING] 无法加载 CategoryColorMapper: {e}")
-        mapper = None
+    # 5. Phase 3.5: 提取仲裁后的 Category 并编码为标签
+    print("\n🏷️  提取 Category 标签（使用仲裁后的 Category）...")
     
     categories = []
     for meta in metadata:
-        cat_id = meta.get('category', '')
-        if mapper:
-            category = mapper.get_category_from_catid(cat_id)
-            if not category:
-                category = "UNCATEGORIZED"
-        else:
+        # Phase 3.5: 直接使用仲裁后的 Category（已在 data_processor 中保存）
+        category = meta.get('category', 'UNCATEGORIZED')
+        if not category or category == '':
             category = "UNCATEGORIZED"
         categories.append(category)
     
@@ -129,9 +120,9 @@ def recalculate_umap():
     
     print(f"   发现 {len(label_encoder.classes_)} 个 Category")
     
-    # 6. 计算 Supervised UMAP 坐标（使用新参数）
-    print("\n🗺️  计算 Supervised UMAP 坐标（新参数）...")
-    print("   参数: n_neighbors=30, min_dist=0.01 (紧密堆积)")
+    # 6. Phase 3.5: 计算 Supervised UMAP 坐标（使用极强监督参数）
+    print("\n🗺️  计算 Supervised UMAP 坐标（Phase 3.5 极强监督参数）...")
+    print("   参数: target_weight=0.95 (铁腕统治), n_neighbors=50, min_dist=0.001, spread=0.5 (大陆板块)")
     print("   ⏳ 这可能需要几分钟，请耐心等待...")
     import sys
     sys.stdout.flush()  # 强制刷新输出
@@ -141,11 +132,11 @@ def recalculate_umap():
     try:
         reducer = umap.UMAP(
             n_components=2,
-            n_neighbors=30,       # 从15改为30，增强全局结构
-            min_dist=0.01,        # 从0.1改为0.01，允许紧密堆积
-            spread=1.0,
+            n_neighbors=50,       # 从30提升到50 (吸附更多周围的点)
+            min_dist=0.001,       # 从0.01降低到0.001 (允许极度紧密)
+            spread=0.5,           # 降低扩散 (默认1.0)，让群岛聚拢
             metric='cosine',
-            target_weight=0.7,
+            target_weight=0.95,   # 【关键】提升到 0.95，实施铁腕统治
             target_metric='categorical',
             random_state=42,
             n_jobs=1

@@ -11,14 +11,21 @@ from dataclasses import dataclass
 
 @dataclass
 class AudioMetadata:
-    """音频元数据"""
+    """音频元数据 - Phase 3.5 扩展版"""
     recID: int
     filename: str
     filepath: str
     description: str
     keywords: str
     category: str
-    semantic_text: str  # 构建的语义文本
+    semantic_text: str  # 构建的语义文本（向后兼容）
+    rich_context_text: str  # Phase 3.5: 丰富的上下文文本（所有字段拼接）
+    # Phase 3.5: 扩展字段
+    vendor_category: str = ""
+    library: str = ""
+    bw_description: str = ""
+    notes: str = ""
+    fx_name: str = ""
 
 
 class SoundminerImporter:
@@ -101,6 +108,22 @@ class SoundminerImporter:
         
         raise ValueError(f"未找到支持的表，支持的表名: {self.SUPPORTED_TABLES}")
     
+    def _get_table_columns(self, table_name: str) -> List[str]:
+        """
+        Phase 3.5: 获取表的所有列名
+        
+        Args:
+            table_name: 表名
+            
+        Returns:
+            列名列表
+        """
+        self._connect()
+        cursor = self.conn.cursor()
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        columns = [row[1] for row in cursor.fetchall()]
+        return columns
+    
     def _process_category_with_ucs(self, category: Optional[str], keywords: Optional[str]) -> str:
         """
         使用 UCSManager 处理分类
@@ -132,7 +155,7 @@ class SoundminerImporter:
     
     def _build_semantic_text(self, row: sqlite3.Row, mapping: Dict[str, str]) -> str:
         """
-        构建语义文本字段
+        构建语义文本字段（向后兼容）
         
         Args:
             row: 数据库行
@@ -170,9 +193,53 @@ class SoundminerImporter:
         
         return " ".join(parts)
     
+    def _build_rich_context_text(self, row: sqlite3.Row, all_columns: List[str]) -> str:
+        """
+        Phase 3.5: 构建丰富的上下文文本（所有相关字段拼接）
+        
+        Args:
+            row: 数据库行
+            all_columns: 表的所有列名
+            
+        Returns:
+            丰富的上下文文本
+        """
+        parts = []
+        
+        # Phase 3.5: 提取所有潜在元数据字段
+        priority_fields = [
+            'Filename', 'filename',
+            'Description', 'description',
+            'Keywords', 'keywords',
+            'VendorCategory', 'vendorcategory', 'Vendor_Category',
+            'Library', 'library',
+            'BWDescription', 'bwdescription', 'BW_Description',
+            'Notes', 'notes',
+            'FXName', 'fxname', 'FX_Name'
+        ]
+        
+        # 按优先级提取字段
+        for field in priority_fields:
+            if field in all_columns:
+                value = row[field]
+                if value and str(value).strip():
+                    parts.append(str(value).strip())
+        
+        # 如果某些字段不存在，尝试不区分大小写匹配
+        if not parts:
+            row_dict = dict(row)
+            for col in all_columns:
+                col_lower = col.lower()
+                if any(pf.lower() in col_lower for pf in priority_fields):
+                    value = row_dict[col]
+                    if value and str(value).strip():
+                        parts.append(str(value).strip())
+        
+        return " ".join(parts)
+    
     def import_all(self, limit: Optional[int] = None) -> List[AudioMetadata]:
         """
-        导入所有音频元数据
+        Phase 3.5: 导入所有音频元数据（扩展版）
         
         Args:
             limit: 限制导入的数量（用于测试）
@@ -187,6 +254,9 @@ class SoundminerImporter:
             self.table_name = self._detect_table_name()
             self.field_mapping = self.FIELD_MAPPINGS.get(self.table_name, {})
         
+        # Phase 3.5: 获取表的所有列
+        all_columns = self._get_table_columns(self.table_name)
+        
         # 构建查询
         query = f"SELECT * FROM {self.table_name}"
         if limit:
@@ -197,7 +267,7 @@ class SoundminerImporter:
         
         results = []
         for row in cursor:
-            # 提取字段
+            # 提取基础字段（向后兼容）
             recID = row[self.field_mapping['recID']] if self.field_mapping.get('recID') else None
             filename = row[self.field_mapping['filename']] if self.field_mapping.get('filename') else ""
             filepath = row[self.field_mapping['filepath']] if self.field_mapping.get('filepath') else ""
@@ -205,8 +275,34 @@ class SoundminerImporter:
             keywords = row[self.field_mapping['keywords']] if self.field_mapping.get('keywords') else ""
             category = row[self.field_mapping['category']] if self.field_mapping.get('category') else ""
             
-            # 构建语义文本
+            # Phase 3.5: 提取扩展字段
+            vendor_category = ""
+            library = ""
+            bw_description = ""
+            notes = ""
+            fx_name = ""
+            
+            row_dict = dict(row)
+            for col in all_columns:
+                col_lower = col.lower()
+                value = row_dict.get(col, "")
+                if value and str(value).strip():
+                    if 'vendor' in col_lower and 'category' in col_lower:
+                        vendor_category = str(value).strip()
+                    elif col_lower == 'library':
+                        library = str(value).strip()
+                    elif 'bw' in col_lower and 'description' in col_lower:
+                        bw_description = str(value).strip()
+                    elif col_lower == 'notes':
+                        notes = str(value).strip()
+                    elif 'fx' in col_lower and 'name' in col_lower:
+                        fx_name = str(value).strip()
+            
+            # 构建语义文本（向后兼容）
             semantic_text = self._build_semantic_text(row, self.field_mapping)
+            
+            # Phase 3.5: 构建丰富的上下文文本
+            rich_context_text = self._build_rich_context_text(row, all_columns)
             
             # 创建元数据对象
             metadata = AudioMetadata(
@@ -216,7 +312,13 @@ class SoundminerImporter:
                 description=description or "",
                 keywords=keywords or "",
                 category=category or "",
-                semantic_text=semantic_text
+                semantic_text=semantic_text,
+                rich_context_text=rich_context_text,
+                vendor_category=vendor_category,
+                library=library,
+                bw_description=bw_description,
+                notes=notes,
+                fx_name=fx_name
             )
             
             results.append(metadata)

@@ -61,6 +61,11 @@ class UCSManager:
         
         # CatID -> 别名列表 映射（用于反向查找）
         self.catid_to_aliases: Dict[str, list] = {}
+        
+        # 【754 CatID Source of Truth】CatID 查找表
+        # 格式: "AIRBlow": {"category": "AIR", "subcategory": "BLOW", "name": "AIR - BLOW"}
+        # 使用 CatShort 作为 category（因为 Color Mapper 认这个）
+        self.catid_lookup: Dict[str, Dict[str, str]] = {}
     
     def load_all(self) -> None:
         """加载所有UCS相关配置文件"""
@@ -121,6 +126,14 @@ class UCSManager:
                 self.catid_to_category[cat_id] = ucs_category
                 full_category = ucs_category.full_category
                 self.fullcategory_to_catid[full_category] = cat_id
+                
+                # 【754 CatID Source of Truth】构建 CatID 查找表
+                # 使用 CatShort 作为 category（因为 Color Mapper 认这个）
+                self.catid_lookup[cat_id] = {
+                    "category": cat_short if cat_short else category,  # 优先使用 CatShort
+                    "subcategory": subcategory,
+                    "name": f"{category} - {subcategory}"
+                }
                 
         except pd.errors.EmptyDataError:
             raise UCSError("UCS CatID列表文件为空")
@@ -260,6 +273,34 @@ class UCSManager:
                 if keyword_lower in synonym.lower() or synonym.lower() in keyword_lower:
                     return cat_id
         
+        return None
+    
+    def get_category_code(self, cat_id: str) -> Optional[str]:
+        """
+        【754 CatID Source of Truth】获取 CatID 对应的 Category Code (CatShort)
+        
+        Args:
+            cat_id: CatID (如 "AIRBlow")
+            
+        Returns:
+            Category Code (CatShort, 如 "AIR")，如果未找到则返回 None
+        """
+        if cat_id in self.catid_lookup:
+            return self.catid_lookup[cat_id].get("category")
+        return None
+    
+    def get_subcategory_by_catid(self, cat_id: str) -> Optional[str]:
+        """
+        【754 CatID Source of Truth】获取 CatID 对应的 SubCategory
+        
+        Args:
+            cat_id: CatID (如 "AIRBlow")
+            
+        Returns:
+            SubCategory (如 "BLOW")，如果未找到则返回 None
+        """
+        if cat_id in self.catid_lookup:
+            return self.catid_lookup[cat_id].get("subcategory")
         return None
     
     def get_category_by_catid(self, cat_id: str) -> Optional[UCSCategory]:
