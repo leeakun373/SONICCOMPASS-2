@@ -18,7 +18,7 @@ ConfigManager = ConfigLoader  # 别名
 
 
 # 路径配置 (指向你的测试素材)
-TEST_DB_PATH = "./test_assets/Nas_SoundLibrary.sqlite"
+TEST_DB_PATH = "./test_assets/Sonic.sqlite"
 MODEL_PATH = "./models/bge-m3"
 
 

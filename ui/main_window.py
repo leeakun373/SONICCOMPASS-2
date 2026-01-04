@@ -8,15 +8,17 @@ from pathlib import Path
 from typing import Optional
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QLineEdit, QCheckBox, QFrame
+    QPushButton, QLabel, QLineEdit, QCheckBox, QFrame, QProgressBar,
+    QFileDialog, QMessageBox
 )
+from PySide6.QtCore import QThread, Signal as QtSignal
 from PySide6.QtCore import Qt, QRectF
 
 from ui.components import CanvasView, SearchBar, InspectorPanel, UniversalTagger
 from ui.visualizer import SonicUniverse
 from ui.styles import GLOBAL_STYLESHEET
 from core import DataProcessor, SearchCore, VectorEngine, UCSManager
-from data import SoundminerImporter
+from data import SoundminerImporter, ConfigManager
 
 class SonicCompassMainWindow(QMainWindow):
     """Sonic Compass 主窗口"""
@@ -33,6 +35,13 @@ class SonicCompassMainWindow(QMainWindow):
         
         # 右键菜单
         self.context_menu: Optional[UniversalTagger] = None
+        
+        # 配置管理器
+        self.config_manager = ConfigManager()
+        try:
+            self.config_manager.load_all()
+        except Exception as e:
+            print(f"[WARNING] 加载配置失败: {e}")
         
         # 动态轴配置
         self.axis_config = {
@@ -247,6 +256,51 @@ class SonicCompassMainWindow(QMainWindow):
         
         layout.addWidget(axes_container)
         
+        layout.addSpacing(20)
+        
+        # 库路径设置
+        library_title = QLabel("LIBRARY")
+        library_title.setObjectName("section_title")
+        library_title.setStyleSheet(mode_title.styleSheet())
+        layout.addWidget(library_title)
+        
+        library_btn = QPushButton("📁 Set Library Path")
+        library_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(94, 106, 210, 0.2);
+                color: #5E6AD2;
+                border: 1px solid rgba(94, 106, 210, 0.3);
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: rgba(94, 106, 210, 0.3);
+            }
+        """)
+        library_btn.clicked.connect(self._setup_library_path)
+        layout.addWidget(library_btn)
+        
+        layout.addSpacing(10)
+        
+        # Rebuild Atlas 按钮
+        rebuild_btn = QPushButton("🔄 Rebuild Atlas")
+        rebuild_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 107, 107, 0.2);
+                color: #FF6B6B;
+                border: 1px solid rgba(255, 107, 107, 0.3);
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 107, 107, 0.3);
+            }
+        """)
+        rebuild_btn.clicked.connect(self._rebuild_atlas)
+        layout.addWidget(rebuild_btn)
+        
         layout.addStretch()
         
         # 状态信息
@@ -255,6 +309,30 @@ class SonicCompassMainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: #5F636E; font-size: 11px;")
         layout.addWidget(self.status_label)
         
+        # 进度条和进度标签
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #2A2D35;
+                border-radius: 4px;
+                text-align: center;
+                background-color: #1A1C23;
+            }
+            QProgressBar::chunk {
+                background-color: #5E6AD2;
+                border-radius: 3px;
+            }
+        """)
+        layout.addWidget(self.progress_bar)
+        
+        self.progress_label = QLabel("")
+        self.progress_label.setVisible(False)
+        self.progress_label.setStyleSheet("color: #5F636E; font-size: 10px;")
+        layout.addWidget(self.progress_label)
+        
         return sidebar
     
     def _load_data(self):
@@ -262,12 +340,18 @@ class SonicCompassMainWindow(QMainWindow):
         try:
             self.status_label.setText("Loading data...")
             
+            # 显示进度条
+            self.progress_bar.setVisible(True)
+            self.progress_label.setVisible(True)
+            self.progress_bar.setValue(0)
+            self.progress_label.setText("Initializing...")
+            
             # 初始化组件
             ucs_manager = UCSManager()
             ucs_manager.load_all()
             
             importer = SoundminerImporter(
-                db_path="./test_assets/Nas_SoundLibrary.sqlite",
+                db_path="./test_assets/Sonic.sqlite",
                 ucs_manager=ucs_manager
             )
             
@@ -279,6 +363,10 @@ class SonicCompassMainWindow(QMainWindow):
                 vector_engine=vector_engine,
                 cache_dir="./cache"
             )
+            
+            # 连接进度信号
+            if hasattr(self.processor, 'progress_signal'):
+                self.processor.progress_signal.connect(self._on_progress_updated)
             
             # 加载索引
             metadata, embeddings = self.processor.load_index()
@@ -313,11 +401,180 @@ class SonicCompassMainWindow(QMainWindow):
             # 设置画布交互
             self._setup_canvas_interaction()
             
+            # 构建库文件树
+            if self.config_manager.library_root:
+                self.inspector._build_library_tree(self.config_manager.library_root, metadata)
+            
+            # 隐藏进度条
+            self.progress_bar.setVisible(False)
+            self.progress_label.setVisible(False)
+            
             self.status_label.setText(f"Loaded {len(metadata)} items")
             importer.close()
             
         except Exception as e:
             self.status_label.setText(f"Error: {str(e)}")
+            # 隐藏进度条
+            self.progress_bar.setVisible(False)
+            self.progress_label.setVisible(False)
+    
+    def _on_progress_updated(self, progress: int, description: str):
+        """进度更新槽函数"""
+        self.progress_bar.setValue(progress)
+        self.progress_label.setText(description)
+    
+    def _setup_library_path(self):
+        """设置库路径"""
+        current_path = self.config_manager.library_root or ""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Library Root Directory",
+            current_path
+        )
+        
+        if directory:
+            self.config_manager.library_root = directory
+            try:
+                self.config_manager.save_user_config()
+                self.status_label.setText(f"Library path set: {directory}")
+                # 更新 Inspector 面板的库文件树
+                if hasattr(self.inspector, '_build_library_tree') and self.processor:
+                    metadata, _ = self.processor.load_index()
+                    self.inspector._build_library_tree(self.config_manager.library_root, metadata)
+            except Exception as e:
+                self.status_label.setText(f"Error saving library path: {str(e)}")
+    
+    def _rebuild_atlas(self):
+        """重建星图"""
+        # 确认对话框
+        reply = QMessageBox.question(
+            self,
+            "Rebuild Atlas",
+            "重建星图将重新计算所有向量和UMAP坐标，这可能需要较长时间。\n\n是否继续？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        # 显示进度条
+        self.progress_bar.setVisible(True)
+        self.progress_label.setVisible(True)
+        self.progress_bar.setValue(0)
+        self.progress_label.setText("Initializing rebuild...")
+        self.status_label.setText("Rebuilding atlas...")
+        
+        try:
+            # 初始化组件
+            from core import UCSManager
+            ucs_manager = UCSManager()
+            ucs_manager.load_all()
+            
+            from data import SoundminerImporter
+            importer = SoundminerImporter(
+                db_path="./test_assets/Sonic.sqlite",
+                ucs_manager=ucs_manager
+            )
+            
+            vector_engine = VectorEngine(model_path="./models/bge-m3")
+            
+            # 创建处理器
+            processor = DataProcessor(
+                importer=importer,
+                vector_engine=vector_engine,
+                cache_dir="./cache"
+            )
+            
+            # 连接进度信号
+            if hasattr(processor, 'progress_signal'):
+                processor.progress_signal.connect(self._on_progress_updated)
+            
+            # 构建索引（向量化）
+            metadata, embeddings = processor.build_index(
+                limit=None,
+                force_rebuild=True
+            )
+            
+            # 计算 Supervised UMAP 坐标
+            self.progress_label.setText("Computing UMAP coordinates...")
+            self.progress_bar.setValue(70)
+            
+            import umap
+            from sklearn.preprocessing import LabelEncoder
+            import numpy as np
+            
+            # 提取 Category 并编码
+            try:
+                from core.category_color_mapper import CategoryColorMapper
+                mapper = CategoryColorMapper()
+            except Exception:
+                mapper = None
+            
+            categories = []
+            for meta in metadata:
+                cat_id = meta.get('category', '')
+                if mapper:
+                    category = mapper.get_category_from_catid(cat_id)
+                    if not category:
+                        category = "UNCATEGORIZED"
+                else:
+                    category = "UNCATEGORIZED"
+                categories.append(category)
+            
+            # 使用 LabelEncoder 编码
+            label_encoder = LabelEncoder()
+            targets = label_encoder.fit_transform(categories)
+            
+            # Supervised UMAP
+            reducer = umap.UMAP(
+                n_components=2,
+                n_neighbors=15,
+                min_dist=0.1,
+                spread=1.0,
+                metric='cosine',
+                target_weight=0.7,
+                target_metric='categorical',
+                random_state=42,
+                n_jobs=1
+            )
+            coords_2d = reducer.fit_transform(embeddings, y=targets)
+            
+            # 坐标归一化到 0-3000
+            min_coords = coords_2d.min(axis=0)
+            max_coords = coords_2d.max(axis=0)
+            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
+            coords_2d = (coords_2d - min_coords) * scale
+            
+            # 保存坐标
+            processor.save_coordinates(coords_2d)
+            
+            self.progress_bar.setValue(100)
+            self.progress_label.setText("Complete")
+            
+            # 重新加载数据
+            self.status_label.setText("Reloading data...")
+            self._load_data()
+            
+            QMessageBox.information(
+                self,
+                "Rebuild Complete",
+                f"星图重建完成！\n\n处理了 {len(metadata)} 条记录。"
+            )
+            
+        except Exception as e:
+            self.status_label.setText(f"Rebuild error: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Rebuild Error",
+                f"重建失败：\n{str(e)}"
+            )
+            import traceback
+            traceback.print_exc()
+        finally:
+            # 隐藏进度条
+            self.progress_bar.setVisible(False)
+            self.progress_label.setVisible(False)
             print(f"[ERROR] 数据加载失败: {e}")
             import traceback
             traceback.print_exc()

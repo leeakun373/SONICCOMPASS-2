@@ -208,29 +208,45 @@ class HexGridLayer(QGraphicsItem):
         if category_positions:
             components = self._find_connected_components(category_positions)
             
-            for category, component_positions in components:
-                if len(component_positions) >= 1:
-                    # 计算该连通域的几何中心
-                    centers = [self._hex_to_pixel(q, r) for q, r in component_positions]
-                    centroid_x = sum(c.x() for c in centers) / len(centers)
-                    centroid_y = sum(c.y() for c in centers) / len(centers)
-                    
-                    # 获取该大类的颜色
-                    label_color = None
-                    if mapper:
-                        # 从组件中获取第一个六边形的CatID来确定颜色
-                        first_hex = component_positions[0]
-                        if first_hex in self.grid_data:
-                            first_idx = self.grid_data[first_hex][0]
-                            if first_idx < len(metadata):
-                                cat_id = metadata[first_idx].get('category', '')
-                                label_color = mapper.get_color_for_catid(cat_id)
-                    
-                    self.category_labels.append({
-                        'text': category.upper(),
-                        'pos': QPointF(centroid_x, centroid_y),
-                        'color': label_color
-                    })
+            # 过滤：只保留面积 >= 5 个六边形的大岛屿
+            large_components = [(cat, pos_list) for cat, pos_list in components if len(pos_list) >= 5]
+            
+            # 按面积从大到小排序
+            large_components.sort(key=lambda x: len(x[1]), reverse=True)
+            
+            # 生成标签（在碰撞剔除前）
+            candidate_labels = []
+            for category, component_positions in large_components:
+                # 计算该连通域的几何中心（使用六边形坐标的平均值）
+                avg_q = sum(q for q, r in component_positions) / len(component_positions)
+                avg_r = sum(r for q, r in component_positions) / len(component_positions)
+                center = self._hex_to_pixel(avg_q, avg_r)
+                
+                # 获取该大类的颜色
+                label_color = None
+                if mapper:
+                    # 从组件中获取第一个六边形的CatID来确定颜色
+                    first_hex = component_positions[0]
+                    if first_hex in self.grid_data:
+                        first_idx = self.grid_data[first_hex][0]
+                        if first_idx < len(metadata):
+                            cat_id = metadata[first_idx].get('category', '')
+                            label_color = mapper.get_color_for_catid(cat_id)
+                            # 高亮版：Value + 20%
+                            if label_color:
+                                h, s, v, a = label_color.getHsvF()
+                                v = min(1.0, v + 0.2)
+                                label_color = QColor.fromHsvF(h, s, v, a)
+                
+                candidate_labels.append({
+                    'text': category.upper(),
+                    'pos': center,
+                    'color': label_color,
+                    'area': len(component_positions)
+                })
+            
+            # 碰撞剔除
+            self.category_labels = self._collision_culling(candidate_labels)
     
     def boundingRect(self):
         # 估算一个超大范围即可，视口裁剪由 paint 处理
@@ -333,11 +349,66 @@ class HexGridLayer(QGraphicsItem):
         y = size * (math.sqrt(3)/2 * q + math.sqrt(3) * r)
         return QPointF(x, y)
     
+    def _collision_culling(self, candidate_labels):
+        """
+        碰撞剔除：按面积从大到小排序，依次放置标签，如果重叠则丢弃
+        
+        Args:
+            candidate_labels: 候选标签列表，每个元素包含 'text', 'pos', 'color', 'area'
+            
+        Returns:
+            过滤后的标签列表
+        """
+        if not candidate_labels:
+            return []
+        
+        # 按面积从大到小排序（已经在外部排序，这里确保）
+        candidate_labels.sort(key=lambda x: x.get('area', 0), reverse=True)
+        
+        placed_labels = []
+        placed_rects = []  # 存储已放置标签的 BoundingBox
+        
+        for label in candidate_labels:
+            text = label['text']
+            pos = label['pos']
+            
+            # 估算标签的 BoundingBox（基于文本长度和字号）
+            # 使用 hex_size * 0.8 作为基础字号
+            base_font_size = self.hex_size * 0.8
+            zoom_factor = max(0.3, self.current_zoom)
+            font_size = int(base_font_size / pow(zoom_factor, 0.5))
+            
+            # 估算文本宽度和高度（粗略估算：每个字符宽度约为 font_size * 0.6）
+            text_width = len(text) * font_size * 0.6
+            text_height = font_size * 1.2
+            
+            # 添加边距
+            margin = 10
+            label_rect = QRectF(
+                pos.x() - text_width / 2 - margin,
+                pos.y() - text_height / 2 - margin,
+                text_width + margin * 2,
+                text_height + margin * 2
+            )
+            
+            # 检查是否与已放置的标签重叠
+            overlaps = False
+            for placed_rect in placed_rects:
+                if label_rect.intersects(placed_rect):
+                    overlaps = True
+                    break
+            
+            # 如果不重叠，添加到已放置列表
+            if not overlaps:
+                placed_labels.append(label)
+                placed_rects.append(label_rect)
+        
+        return placed_labels
+    
     def _draw_category_labels(self, painter, clip_rect):
         """绘制 LOD 0 大类标签（带反向缩放）"""
-        # 反向缩放：zoom 越小，文字越大
-        # 使用非线性缩放公式，使放大时字体缩小得更快
-        base_font_size = self.hex_size * 2.0
+        # 使用 hex_size * 0.8 作为基础字号，随缩放平滑变化
+        base_font_size = self.hex_size * 0.8
         zoom_factor = max(0.3, self.current_zoom)  # 防止除零
         font_size = int(base_font_size / pow(zoom_factor, 0.5))  # 非线性反向缩放
         font = QFont("Segoe UI", font_size, QFont.Weight.Bold)
@@ -369,27 +440,105 @@ class HexGridLayer(QGraphicsItem):
             painter.setPen(text_color)
             painter.drawStaticText(int(text_x), int(text_y), static_text)
     
+    def _greedy_grid_culling(self, label_items):
+        """
+        Greedy Grid 避让算法：将屏幕划分为虚拟网格，按优先级放置标签
+        
+        Args:
+            label_items: 标签项列表，每个元素包含 (q, r), label_data, 数据量
+            
+        Returns:
+            过滤后的标签项列表
+        """
+        if not label_items:
+            return []
+        
+        # 按数据量从大到小排序（优先级）
+        label_items.sort(key=lambda x: x[2], reverse=True)
+        
+        # 虚拟网格大小（可根据屏幕分辨率调整）
+        grid_width = 100
+        grid_height = 50
+        
+        # 使用字典存储已占用的网格位置（O(1)查找）
+        occupied_grids = set()
+        
+        filtered_items = []
+        
+        for (q, r), label_data, data_count in label_items:
+            pos = label_data['pos']
+            
+            # 计算标签占据的网格位置
+            grid_x = int(pos.x() / grid_width)
+            grid_y = int(pos.y() / grid_height)
+            
+            # 估算标签占据的网格范围（考虑文本大小）
+            font_size = int(self.hex_size * 0.6)
+            text_width = len(label_data['text']) * font_size * 0.6
+            text_height = font_size * 1.2
+            margin = 5
+            
+            grid_span_x = max(1, int((text_width + margin * 2) / grid_width) + 1)
+            grid_span_y = max(1, int((text_height + margin * 2) / grid_height) + 1)
+            
+            # 检查该标签占据的所有网格是否已被占用
+            overlaps = False
+            for dx in range(grid_span_x):
+                for dy in range(grid_span_y):
+                    grid_key = (grid_x + dx, grid_y + dy)
+                    if grid_key in occupied_grids:
+                        overlaps = True
+                        break
+                if overlaps:
+                    break
+            
+            # 如果不重叠，添加到已占用网格并保留标签
+            if not overlaps:
+                for dx in range(grid_span_x):
+                    for dy in range(grid_span_y):
+                        occupied_grids.add((grid_x + dx, grid_y + dy))
+                filtered_items.append(((q, r), label_data))
+        
+        return filtered_items
+    
     def _draw_subcategory_labels(self, painter, clip_rect):
-        """绘制 LOD 1 子类标签（每个六边形中心）"""
+        """绘制 LOD 1 子类标签（每个六边形中心，使用 Greedy Grid 避让）"""
         font_size = int(self.hex_size * 0.6)  # 小字号，不遮挡
         font = QFont("Segoe UI", font_size)
         painter.setFont(font)
         
+        # 准备标签项（包含数据量信息）
+        label_items = []
         for (q, r), label_data in self.subcategory_labels.items():
             pos = label_data['pos']
             if not clip_rect.contains(pos):
                 continue
             
+            # 获取该六边形的数据量
+            data_count = len(self.grid_data.get((q, r), []))
+            label_items.append(((q, r), label_data, data_count))
+        
+        # 使用 Greedy Grid 避让算法过滤标签
+        filtered_labels = self._greedy_grid_culling(label_items)
+        
+        # 绘制过滤后的标签
+        for (q, r), label_data in filtered_labels:
+            pos = label_data['pos']
             text = label_data['text']
             static_text = QStaticText(text)
             text_rect = painter.fontMetrics().boundingRect(text)
             text_x = pos.x() - text_rect.width() / 2
             text_y = pos.y() + text_rect.height() / 2
             
-            # 绘制半透明背景以提高可读性
+            # 绘制半透明背景以提高可读性（使用分类颜色，略调透明度）
             bg_rect = QRectF(text_x - 2, text_y - text_rect.height(), 
                             text_rect.width() + 4, text_rect.height() + 4)
-            bg_color = QColor(0, 0, 0, 150)
+            label_color = label_data.get('color')
+            if label_color:
+                bg_color = QColor(label_color)
+                bg_color.setAlpha(180)  # 略调透明度
+            else:
+                bg_color = QColor(0, 0, 0, 150)
             painter.fillRect(bg_rect, bg_color)
             
             # 绘制文字：使用存储的颜色，如果没有则使用白色
@@ -670,8 +819,8 @@ class SonicUniverse(QGraphicsScene):
             )
             self.setSceneRect(rect)
         else:
-            # 如果没有数据，使用默认范围
-            self.setSceneRect(0, 0, 10000, 10000)
+            # 如果没有数据，使用默认范围（匹配归一化坐标范围 0-3000，加上边距）
+            self.setSceneRect(0, 0, 3500, 3500)
     
     def _pixel_to_hex(self, x, y):
         size = self.hex_size

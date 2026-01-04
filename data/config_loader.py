@@ -62,6 +62,7 @@ class ConfigManager:
         self.axis_definitions: List[AxisDefinition] = []
         self.presets: List[Preset] = []
         self.pillars: List[PillarConcept] = []
+        self.library_root: Optional[str] = None  # 库根路径
         
     def load_all(self) -> None:
         """加载所有配置文件"""
@@ -69,8 +70,40 @@ class ConfigManager:
             self.load_axis_definitions()
             self.load_presets()
             self.load_pillars()
+            self.load_user_config()
         except Exception as e:
             raise ConfigError(f"加载配置失败: {e}") from e
+    
+    def load_user_config(self) -> None:
+        """加载用户配置文件"""
+        file_path = self.config_dir / "user_config.json"
+        
+        if not file_path.exists():
+            # 如果文件不存在，使用默认值
+            self.library_root = None
+            return
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self.library_root = data.get('library_root')
+        except json.JSONDecodeError as e:
+            raise ConfigError(f"用户配置JSON格式错误: {e}") from e
+        except Exception as e:
+            raise ConfigError(f"加载用户配置失败: {e}") from e
+    
+    def save_user_config(self) -> None:
+        """保存用户配置文件"""
+        file_path = self.config_dir / "user_config.json"
+        
+        try:
+            data = {
+                'library_root': self.library_root
+            }
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            raise ConfigError(f"保存用户配置失败: {e}") from e
     
     def load_axis_definitions(self) -> None:
         """加载轴定义文件"""

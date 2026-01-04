@@ -2,10 +2,11 @@
 检查器面板 - 显示选中项的详情
 """
 
-from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QLabel, QFrame
+from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QLabel, QFrame, QTreeWidget, QTreeWidgetItem
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
-from typing import List, Dict
+from PySide6.QtGui import QFont, QColor
+from typing import List, Dict, Optional
+from pathlib import Path
 
 
 class InspectorPanel(QScrollArea):
@@ -43,6 +44,32 @@ class InspectorPanel(QScrollArea):
         hint = QLabel("点击画布上的点或六边形查看详情")
         hint.setWordWrap(True)
         self.layout.addWidget(hint)
+        
+        # 库文件树
+        library_tree_title = QLabel("LIBRARY TREE")
+        library_tree_title.setStyleSheet("color: #5F636E; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 20px;")
+        self.layout.addWidget(library_tree_title)
+        
+        self.library_tree = QTreeWidget()
+        self.library_tree.setHeaderHidden(True)
+        self.library_tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #1C1E24;
+                border: 1px solid #2A2D35;
+                border-radius: 4px;
+                color: #E1E4E8;
+                font-size: 11px;
+            }
+            QTreeWidget::item {
+                padding: 4px;
+            }
+            QTreeWidget::item:hover {
+                background-color: #2A2D35;
+            }
+        """)
+        self.library_tree.setMaximumHeight(200)
+        self.layout.addWidget(self.library_tree)
+        
         self.layout.addStretch()
     
     def show_metadata(self, metadata: dict):
@@ -175,4 +202,63 @@ class InspectorPanel(QScrollArea):
             self.layout.addWidget(more_label)
         
         self.layout.addStretch()
+    
+    def _build_library_tree(self, library_root: Optional[str], metadata_list: List[Dict]):
+        """
+        构建库文件树
+        
+        Args:
+            library_root: 库根路径
+            metadata_list: 元数据列表
+        """
+        self.library_tree.clear()
+        
+        if not library_root or not Path(library_root).exists():
+            return
+        
+        try:
+            # 扫描库根目录下的一级子文件夹
+            root_path = Path(library_root)
+            subdirs = [d for d in root_path.iterdir() if d.is_dir()]
+            
+            if not subdirs:
+                return
+            
+            # 统计每个文件夹的映射数量
+            library_stats = {}
+            for subdir in subdirs:
+                subdir_str = str(subdir)
+                mapped_count = 0
+                total_count = 0
+                
+                # 与 metadata 中的 filepath 进行前缀匹配
+                for meta in metadata_list:
+                    filepath = meta.get('filepath', '')
+                    if filepath and filepath.startswith(subdir_str):
+                        total_count += 1
+                        # 检查是否有有效的category（非UNCATEGORIZED）
+                        cat_id = meta.get('category', '')
+                        if cat_id:
+                            try:
+                                from core.category_color_mapper import CategoryColorMapper
+                                mapper = CategoryColorMapper()
+                                category = mapper.get_category_from_catid(cat_id)
+                                if category and category != "UNCATEGORIZED":
+                                    mapped_count += 1
+                            except Exception:
+                                pass
+                
+                library_stats[subdir.name] = (mapped_count, total_count)
+            
+            # 创建树节点
+            for subdir_name, (mapped, total) in sorted(library_stats.items()):
+                item = QTreeWidgetItem(self.library_tree)
+                item.setText(0, f"{subdir_name} ({mapped}/{total})")
+                if mapped > 0:
+                    item.setForeground(0, QColor("#8B9FFF"))
+                else:
+                    item.setForeground(0, QColor("#5F636E"))
+        
+        except Exception as e:
+            print(f"[WARNING] 构建库文件树失败: {e}")
 

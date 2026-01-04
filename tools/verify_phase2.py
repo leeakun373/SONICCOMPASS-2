@@ -13,7 +13,7 @@ from core import VectorEngine, DataProcessor, SearchCore, UCSManager
 
 
 # 测试配置
-TEST_DB_PATH = "./test_assets/Nas_SoundLibrary.sqlite"
+TEST_DB_PATH = "./test_assets/Sonic.sqlite"
 MODEL_PATH = "./models/bge-m3"
 CACHE_DIR = "./cache"
 

@@ -18,7 +18,7 @@ class CategoryColorMapper:
     
     # 固定的饱和度和明度
     FIXED_SATURATION = 0.75
-    FIXED_VALUE = 0.85
+    FIXED_VALUE = 0.90  # 从 0.85 提升到 0.90，保证亮度
     
     def __init__(self, ucs_csv_path: str = "data_config/ucs_catid_list.csv"):
         """
@@ -118,6 +118,10 @@ class CategoryColorMapper:
         Returns:
             QColor 对象
         """
+        # 特殊处理 UNCATEGORIZED
+        if category == "UNCATEGORIZED":
+            return QColor('#333333')  # 深灰色，不抢眼
+        
         # 计算哈希值
         hash_value = int(hashlib.md5(category.encode('utf-8')).hexdigest(), 16)
         
@@ -143,7 +147,11 @@ class CategoryColorMapper:
             QColor 对象
         """
         if not category:
-            return QColor('#6B7280')  # 默认灰色
+            return QColor('#333333')  # 默认深灰色（UNCATEGORIZED）
+        
+        # 特殊处理 UNCATEGORIZED
+        if category == "UNCATEGORIZED":
+            return QColor('#333333')
         
         # 查找已分配的颜色
         if category in self.category_colors:
