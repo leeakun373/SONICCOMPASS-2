@@ -305,46 +305,29 @@ class UCSManager:
     
     def get_catid_info(self, cat_id: str) -> Optional[Dict[str, str]]:
         """
-        根据 CatID (e.g. 'AIRBlow') 获取详细信息
-        关键：必须返回 'category_code' (e.g. 'AIR')
-        确保返回的 subcategory_name 是大写的，好看点
+        纯查表模式：输入 'WEAPArmr' -> 返回全名
+        完全以 ucs_catid_list.csv 为准，不进行任何猜测
         """
         if not cat_id:
             return None
 
-        info = None
-        
-        # 1. 尝试直接查表 (如果 catid_lookup 存在)
-        if hasattr(self, 'catid_lookup') and cat_id in self.catid_lookup:
-            lookup_info = self.catid_lookup[cat_id]
-            info = {
-                'category_code': lookup_info.get('category', ''),  # CatShort (如 "AIR")
-                'category_name': lookup_info.get('name', '').split(' - ')[0] if ' - ' in lookup_info.get('name', '') else lookup_info.get('category', ''),
-                'subcategory_name': lookup_info.get('subcategory', '')
-            }
-        
-        # 2. 尝试使用 catid_to_category (如果存在)
-        elif hasattr(self, 'catid_to_category') and cat_id in self.catid_to_category:
+        # 1. 直接查 CSV 加载进来的字典
+        if hasattr(self, 'catid_to_category') and cat_id in self.catid_to_category:
             cat_obj = self.catid_to_category[cat_id]
-            info = {
-                'category_code': cat_obj.cat_short,  # 这通常是 'AIR', 'WPN'
-                'category_name': cat_obj.category,
-                'subcategory_name': cat_obj.subcategory
-            }
-
-        # 3. 如果表里没查到，但格式像 UCS (如 "WPNGun")
-        # 盲猜前三位是 Code
-        elif len(cat_id) >= 3 and cat_id[:3].isupper():
-            info = {
-                'category_code': cat_id[:3],
-                'subcategory_name': cat_id[3:] if len(cat_id) > 3 else "GENERAL"
+            subcategory = cat_obj.subcategory.upper() if cat_obj.subcategory else "UNKNOWN"
+            return {
+                'category_code': cat_obj.cat_short,      # CSV第4列: "WEAP"
+                'category_name': cat_obj.category,        # CSV大类列: "WEAPONS"
+                'subcategory_name': subcategory            # CSV子类列: "ARMOR" (转大写)
             }
         
-        # 确保返回的 subcategory_name 是大写的
-        if info and info.get('subcategory_name'):
-            info['subcategory_name'] = info['subcategory_name'].upper()
-            
-        return info
+        # 2. 查不到怎么办？千万别瞎猜了，直接返回原值作为兜底
+        # 这样至少能在地图上看到 "WEAPArmr" 这个字，而不是错误的 "WEA"
+        return {
+            'category_code': cat_id,
+            'category_name': cat_id,
+            'subcategory_name': "UNKNOWN"
+        }
     
     def get_category_by_catid(self, cat_id: str) -> Optional[UCSCategory]:
         """

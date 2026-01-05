@@ -284,19 +284,42 @@ class DataProcessor(QObject):
         rich_text = meta_dict.get('rich_context_text', '') or meta_dict.get('semantic_text', '')
         text_upper = rich_text.upper() if rich_text else ""
         
-        # --- Level 0: 强规则 (返回 CatID 而不是 Code) ---
+        # --- Level 0: 强规则 (返回 CatID，必须与 CSV 中的 CatID 一致) ---
         # 强规则映射到具体的 CatID，这样 LOD1 能显示具体子类
         STRONG_RULES = {
-            'WEAPON': 'WPNMisc', 'GUN': 'WPNGun', 'EXPLOSION': 'WPNExpl', 'BLAST': 'WPNExpl',
-            'FIREARM': 'WPNGun', 'SHOT': 'WPNGun',
-            'LASER': 'SCILasr', 'SCIFI': 'SCIMisc', 'ROBOT': 'SCIMisc', 'FUTURISTIC': 'SCIMisc', 'CYBER': 'SCIMisc',
-            'MAGIC': 'MAGSpel', 'SPELL': 'MAGSpel', 'SORCERY': 'MAGSpel', 'SUPERNATURAL': 'MAGMisc',
-            'WATER': 'WATSplsh', 'LIQUID': 'WATSplsh', 'SPLASH': 'WATSplsh', 'OCEAN': 'WATWav', 'BUBBLE': 'WATBubbl',
-            'RAIN': 'WEARain', 'THUNDER': 'WEATundr', 'STORM': 'WEAStorm',
+            # WEAPONS 系列（根据 CSV 实际 CatID）
+            'WEAPON': 'WEAPMisc', 'SWORD': 'WEAPSwrd', 'BLADE': 'WEAPSwrd', 'KNIFE': 'WEAPKnif',
+            'BOW': 'WEAPBow', 'ARROW': 'WEAPArro', 'AXE': 'WEAPAxe', 'ARMOR': 'WEAPArmr',
+            'WHIP': 'WEAPWhip', 'POLEARM': 'WEAPPole', 'SIEGE': 'WEAPSiege', 'BLUNT': 'WEAPBlnt',
+            # GUNS 系列
+            'GUN': 'GUNMisc', 'FIREARM': 'GUNMisc', 'PISTOL': 'GUNPis', 'RIFLE': 'GUNRif',
+            'SHOTGUN': 'GUNShotg', 'AUTOMATIC': 'GUNAuto', 'MACHINE': 'GUNAuto',
+            # EXPLOSIONS 系列
+            'EXPLOSION': 'EXPLMisc', 'BLAST': 'EXPLMisc', 'BOMB': 'EXPLReal',
+            # MAGIC 系列
+            'MAGIC': 'MAGSpel', 'SPELL': 'MAGSpel', 'ELEMENT': 'MAGElem', 'ELEMENTAL': 'MAGElem',
+            'SORCERY': 'MAGSpel', 'SUPERNATURAL': 'MAGMisc',
+            # ICE 系列
+            'ICE': 'ICEMisc', 'FROZEN': 'ICEMisc', 'BREAK': 'ICEBrk', 'CRASH': 'ICECrsh',
+            # WATER 系列
+            'WATER': 'WATRMisc', 'LIQUID': 'WATRMisc', 'SPLASH': 'WATRMisc', 'OCEAN': 'WATRWave', 'BUBBLE': 'WATRMisc',
+            # LASERS 系列
+            'LASER': 'LASRMisc', 'LASER GUN': 'LASRGun', 'BLASTER': 'LASRGun',
+            # SCIFI 系列
+            'SCIFI': 'SCIMisc', 'SCI-FI': 'SCIMisc', 'ROBOT': 'SCIMisc', 'FUTURISTIC': 'SCIMisc', 'CYBER': 'SCIMisc',
+            # FIRE 系列
+            'FIRE': 'FIREMisc', 'BURNING': 'FIREBurn', 'FLAME': 'FIREBurn',
+            # WEATHER 系列
+            'RAIN': 'WEARain', 'THUNDER': 'WEATundr', 'STORM': 'STORM',
+            # AMBIENCE 系列
             'WIND': 'AMBWind', 'AMBIENCE': 'AMBForst', 'ATMOSPHERE': 'AMBForst', 'FOREST': 'AMBForst', 'NATURE': 'AMBForst',
+            # FOLEY 系列
             'FOOTSTEP': 'FOLFoot', 'WALK': 'FOLFoot', 'CLOTH': 'FOLCloth', 'MOVEMENT': 'FOLFoot',
+            # UI 系列
             'UI': 'UIUser', 'BUTTON': 'UIUser', 'CLICK': 'UIUser', 'INTERFACE': 'UIUser', 'MENU': 'UIUser',
+            # AIRCRAFT 系列
             'AIRCRAFT': 'AEROJet', 'PLANE': 'AEROJet', 'JET': 'AEROJet', 'HELICOPTER': 'AEROHeli',
+            # 其他（需要根据实际 CSV 补充）
             'METAL': 'METLHit', 'METALLIC': 'METLHit', 'IMPACT': 'IMPTHit',
             'WOOD': 'WOODHit', 'WOODEN': 'WOODHit',
             'GLASS': 'GLASHit',

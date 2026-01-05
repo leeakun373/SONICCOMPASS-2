@@ -193,23 +193,33 @@ def rebuild():
         # 加载刚刚生成的 embeddings 和 metadata
         meta, embeddings = processor.load_index()
         
-        # 提取标签 (Category Code)
-        # 关键：这里使用的是 DataProcessor 存进去的 'category' 字段
-        # 在新的逻辑里，它应该是 Code (如 'WPN', 'AIR')
-        categories = []
+        # 提取用于监督学习的标签（大类全名）
+        # 关键：从 CatID（如 WEAPArmr）提取 Category Name（如 WEAPONS）作为聚合目标
+        targets = []
         for m in meta:
-            cat = m.get('category', 'UNCATEGORIZED') if isinstance(m, dict) else getattr(m, 'category', 'UNCATEGORIZED')
-            if not cat or cat == '':
-                cat = 'UNCATEGORIZED'
-            categories.append(cat)
+            cat_id = m.get('category', 'UNCATEGORIZED') if isinstance(m, dict) else getattr(m, 'category', 'UNCATEGORIZED')
+            if not cat_id or cat_id == '':
+                cat_id = 'UNCATEGORIZED'
+            
+            parent_label = "UNCATEGORIZED"
+            
+            # 必须查表！
+            if processor.ucs_manager:
+                info = processor.ucs_manager.get_catid_info(cat_id)
+                if info:
+                    # 直接用大类全名做聚合，最稳
+                    # 比如所有武器都返回 "WEAPONS"
+                    parent_label = info.get('category_name', 'UNCATEGORIZED')
+            
+            targets.append(parent_label)  # 列表里是 [WEAPONS, WEAPONS, ICE, MAGIC, ...]
         
         # 使用 LabelEncoder 编码为整数数组
         label_encoder = LabelEncoder()
-        targets = label_encoder.fit_transform(categories)
+        targets_encoded = label_encoder.fit_transform(targets)
         
         # 简单统计
-        unique_cats = set(categories)
-        print(f"   [统计] 提取到 {len(unique_cats)} 个用于监督的分类标签")
+        unique_cats = set(targets)
+        print(f"   [统计] 提取到 {len(unique_cats)} 个用于监督的分类标签（大类全名）")
         if len(unique_cats) < 5:
             print(f"   [警告] 分类过少: {list(unique_cats)[:10]}... 请检查 AI 仲裁逻辑")
         else:
@@ -230,7 +240,7 @@ def rebuild():
         
         print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
         sys.stdout.flush()
-        coords_2d = reducer.fit_transform(embeddings, y=targets)
+        coords_2d = reducer.fit_transform(embeddings, y=targets_encoded)
         print("   [进度] UMAP 计算完成")
         sys.stdout.flush()
         

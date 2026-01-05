@@ -189,7 +189,8 @@ class HexGridLayer(QGraphicsItem):
             
             # LOD 1 标签（每个 Hex 的子类标签）
             center = self._hex_to_pixel(q, r)
-            if sub_name:
+            # 过滤掉 "UNKNOWN" 和空字符串，只显示有效的子类名称
+            if sub_name and sub_name != "UNKNOWN" and sub_name.strip():
                 self.subcategory_labels[(q, r)] = {
                     'text': sub_name,
                     'pos': center,
@@ -200,7 +201,8 @@ class HexGridLayer(QGraphicsItem):
                 info = self.ucs_manager.get_catid_info(mode_cat_id)
                 if info:
                     sub_name = info.get('subcategory_name', '')
-                    if sub_name:
+                    # 过滤掉 "UNKNOWN" 和空字符串
+                    if sub_name and sub_name != "UNKNOWN" and sub_name.strip():
                         self.subcategory_labels[(q, r)] = {
                             'text': sub_name,
                             'pos': center,

@@ -1119,3 +1119,85 @@ ui/
 **状态**: 关键修复完成，数据分类系统增强，渲染顺序修复，UI初始化修复  
 **更新时间**: 2025-01-04（关键修复）
 
+## 最新更新（2025-01-04 - 完全查表法修复 LOD 显示和聚类问题）
+
+### 完全查表法重构 ⭐ NEW
+
+1. **核心原则：完全查表法 (The Table-Lookup Strategy)**
+   - 删除所有"猜前缀"、"硬编码 CatShort"的逻辑
+   - 一切以 `ucs_catid_list.csv` 为准
+   - 查不到表就返回原值作为兜底，不进行任何猜测
+
+2. **UCS 管理器重构 (`core/ucs_manager.py`)**
+   - 实现纯查表模式：`get_catid_info()` 方法完全依赖 CSV 数据
+   - 删除所有前缀猜测逻辑（如 `cat_id[:3]`）
+   - 删除 `catid_lookup` 的猜测逻辑
+   - 查不到表时返回原值作为兜底，确保至少能显示 CatID 本身
+
+3. **UMAP 聚合修复 (`rebuild_atlas.py`)**
+   - 使用 Category Name（大类全名）作为 UMAP 目标
+   - 从 CatID（如 `WEAPArmr`）通过 UCSManager 查表获取 `category_name`（如 `WEAPONS`）
+   - 这样 `WEAPArmr` 和 `WEAPSwrd` 都会得到 `WEAPONS` 标签，UMAP 会把它们聚在一起形成"大陆"
+
+4. **数据处理器更新 (`core/data_processor.py`)**
+   - 更新强规则映射，使用 CSV 中实际存在的正确 CatID
+   - 主要更新：
+     - WEAPONS 系列：`WEAPSwrd`, `WEAPKnif`, `WEAPBow`, `WEAPArro`, `WEAPAxe`, `WEAPArmr` 等
+     - GUNS 系列：`GUNMisc`, `GUNPis`, `GUNRif`, `GUNShotg`, `GUNAuto` 等
+     - EXPLOSIONS 系列：`EXPLMisc`, `EXPLReal` 等
+     - MAGIC 系列：`MAGSpel`, `MAGElem` 等
+     - ICE 系列：`ICEMisc`, `ICEBrk`, `ICECrsh` 等
+     - LASERS 系列：`LASRMisc`, `LASRGun` 等
+     - SCIFI 系列：`SCIMisc` 等
+     - FIRE 系列：`FIREMisc`, `FIREBurn` 等
+     - WATER 系列：`WATRMisc`, `WATRWave` 等
+
+5. **可视化优化 (`ui/visualizer/sonic_universe.py`)**
+   - 确保 LOD0 显示 Category Name（如 `WEAPONS`）
+   - 确保 LOD1 显示 SubCategory Name（如 `ARMOR`）
+   - 过滤掉 `"UNKNOWN"` 和空字符串，只显示有效的子类名称
+
+### 技术细节
+
+**完全查表法实现**:
+- `get_catid_info()`: 只查 `catid_to_category` 字典，查不到返回原值
+- 不再进行任何前缀猜测或格式解析
+- 确保所有信息都来自 CSV 数据表
+
+**UMAP 聚合逻辑**:
+- 从 metadata 中的 CatID（如 `WEAPArmr`）提取 Category Name（如 `WEAPONS`）
+- 使用 Category Name 作为 UMAP 的监督目标
+- 相同 Category Name 的数据会被聚在一起形成"大陆"
+
+**强规则映射更新**:
+- 所有 CatID 都从 CSV 中实际存在的条目确认
+- 确保强规则映射的 CatID 在 CSV 中存在
+- 避免使用错误的或硬编码的 CatID
+
+### 修复的问题
+
+- ✅ 修复 LOD0 显示 CatID 而不是 Category Name 的问题
+- ✅ 修复 LOD1 显示 "GENERAL" 或空的问题
+- ✅ 修复 UMAP 聚类散乱问题（使用 Category Name 作为目标）
+- ✅ 修复强规则 CatID 错误问题（使用 CSV 中正确的 CatID）
+- ✅ 实现完全查表法，删除所有猜测逻辑
+
+### 数据流验证
+
+修复后的完整数据流：
+
+1. **DataProcessor**: 
+   - 看到 "Ice Break" -> 强规则映射到 `ICEBrk` -> 存入 metadata['category'] = 'ICEBrk'
+
+2. **RebuildAtlas**: 
+   - 看到 `ICEBrk` -> 通过 UCSManager 查表得到 `category_name = "ICE"` -> UMAP 使用 "ICE" 作为目标 -> 把它和 `ICECrsh`（也是 "ICE"）拉到一起 -> 形成大陆
+
+3. **SonicUniverse (LOD0)**: 
+   - 拿到 `ICEBrk` -> 通过 UCSManager 查表 -> 显示 "ICE"
+
+4. **SonicUniverse (LOD1)**: 
+   - 拿到 `ICEBrk` -> 通过 UCSManager 查表 -> 显示 "BREAK"（不再是 GENERAL）
+
+**状态**: 完全查表法重构完成，LOD 显示和聚类问题已修复  
+**更新时间**: 2025-01-04（完全查表法重构）
+
