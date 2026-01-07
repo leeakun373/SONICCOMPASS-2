@@ -15,7 +15,8 @@ SonicCompass/
 │   ├── search_core.py         # 搜索算法核心
 │   ├── vector_engine.py       # AI 向量引擎
 │   ├── ucs_manager.py         # UCS 分类管理
-│   └── category_color_mapper.py  # Category 颜色映射器（基于 UCS Category 大类）
+│   ├── category_color_mapper.py  # Category 颜色映射器（基于 UCS Category 大类）
+│   └── text_utils.py          # 文本归一化工具（Phase 3.5）
 │
 ├── data/                      # 数据导入和配置模块
 │   ├── __init__.py
@@ -25,10 +26,12 @@ SonicCompass/
 ├── tools/                     # 工具脚本
 │   ├── __init__.py
 │   ├── deploy_model.py        # 模型部署工具
-│   ├── generate_rules_json.py # 生成 rules.json 规则文件
+│   ├── generate_rules_json.py # 生成 rules.json 规则文件（Phase 3.5: 从 CSV 读取）
 │   ├── generate_platinum_centroids.py # 生成白金质心
 │   ├── verify_phase2.py       # Phase 2 验证脚本
-│   └── verify_pipeline.py     # 流水线验证脚本
+│   ├── verify_pipeline.py     # 流水线验证脚本
+│   ├── verify_subset.py       # 微缩验证工具（Phase 3.5）
+│   └── standardize_alias_csv.py  # CSV 标准化工具（Phase 3.5）
 │
 ├── ui/                        # UI 模块
 │   ├── __init__.py
@@ -70,6 +73,7 @@ SonicCompass/
     ├── Phase1_Technical_Summary.md
     ├── Phase2_Technical_Summary.md
     ├── Phase3_Progress_Status.md
+    ├── Phase3.5_Toolchain_DataPipeline.md  # Phase 3.5 工具链文档
     ├── Refactoring_Summary.md
     └── The Architecture
 ```
@@ -110,18 +114,28 @@ python main.py
 
 ## 最新更新
 
-### 2025-01-05 - 颜色映射和规则系统重构
+### 2025-01-05 - Phase 3.5: 工具链与数据管道重构
+
+**工具链建设**:
+- ✅ 新增 `tools/verify_subset.py` - 微缩验证工具（30秒内验证分类效果）
+- ✅ 新增 `core/text_utils.py` - 文本归一化工具（保留空格，整词匹配）
+- ✅ 新增 `tools/standardize_alias_csv.py` - CSV 标准化工具
+
+**规则系统重构**:
+- ✅ `tools/generate_rules_json.py` 从硬编码改为读取 `ucs_alias.csv`
+- ✅ 规则按关键词长度降序排序（最长优先）
+- ✅ 关键词归一化保留空格（区分 "metal door" 和 "metaldoor"）
+- ✅ 所有规则基于 CSV 真实数据生成
+
+**分类逻辑升级**:
+- ✅ `core/data_processor.py` 使用整词匹配（Whole Word Matching）
+- ✅ 使用正则表达式 `\b{keyword}\b` 确保只匹配完整单词
+- ✅ 避免误匹配（如 "train" 不会匹配 "training"）
 
 **颜色映射系统重构**:
 - ✅ CategoryColorMapper 支持 Category Name（第一列）作为 key
 - ✅ 修复"色盲眼"问题：现在可以识别大类全名
 - ✅ 支持三种查询方式：Category Name、CatID、CatShort
-
-**规则系统外部化**:
-- ✅ 新增 `tools/generate_rules_json.py` 脚本
-- ✅ 新增 `data_config/rules.json` 规则文件
-- ✅ DataProcessor 从 JSON 文件加载规则，不再硬编码
-- ✅ 所有规则基于 CSV 真实数据生成（82 条规则）
 
 **聚类逻辑修正**:
 - ✅ rebuild_atlas.py 使用 Category Name 而非 Code 进行聚合

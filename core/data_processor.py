@@ -356,9 +356,18 @@ class DataProcessor(QObject):
         # 强规则映射到具体的 CatID，这样 LOD1 能显示具体子类
         # 从 rules.json 加载（不再硬编码）
         
-        # 检查强规则，直接返回 CatID
+        # 检查强规则，使用整词匹配（Whole Word Matching）
+        # 使用正则表达式确保只匹配完整单词，避免 "train" 匹配 "training"
+        import re
         for keyword, target_id in self.strong_rules.items():
-            if keyword in text_upper:
+            # 转小写进行匹配（因为 normalize_text 返回小写）
+            keyword_lower = keyword.lower()
+            text_lower = rich_text.lower() if rich_text else ""
+            
+            # 使用整词边界匹配：\b 确保单词边界
+            # re.escape 转义特殊字符，确保安全
+            pattern = rf"\b{re.escape(keyword_lower)}\b"
+            if re.search(pattern, text_lower):
                 # 对强规则结果也进行严格验证
                 if self.ucs_manager:
                     validated = self.ucs_manager.enforce_strict_category(target_id)

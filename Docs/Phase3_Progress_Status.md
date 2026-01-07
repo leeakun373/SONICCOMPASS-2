@@ -1336,3 +1336,111 @@ ui/
 
 **更新时间**: 2025-01-05（问题记录和修复）
 
+---
+
+## Phase 3.5: 工具链与数据管道重构
+
+**状态**: 实施中  
+**更新时间**: 2025-01-05
+
+### 概述
+
+Phase 3.5 的核心目标是建立快速验证工具链，打通数据管道，实现数据驱动的规则生成系统。
+
+### 已完成的工作
+
+#### 第一阶段：工具链与基础设施建设 ✅
+
+1. **微缩验证工具 `tools/verify_subset.py`** ✅
+   - 支持关键词过滤查询（使用原始 SQL）
+   - 运行分类逻辑（规则 + AI）
+   - 生成 matplotlib 可视化散点图（默认输出 `verification_result.png`）
+   - 打印详细分类报告（格式：`Matched 'text' -> CatID via Source`）
+   - 分类来源统计、类别分布
+
+2. **文本归一化工具 `core/text_utils.py`** ✅
+   - `normalize_text()` - 基础归一化函数（**保留空格**）
+   - `normalize_keyword()` - 关键词归一化
+   - `normalize_filename()` - 文件名归一化
+   - 支持移除数字选项
+   - **关键特性**：保留单词之间的空格，确保 "metal door" 与 "metaldoor" 区分
+
+#### 第二阶段：打通数据管道 ✅
+
+1. **重构 `tools/generate_rules_json.py`** ✅
+   - 从硬编码改为读取 `ucs_alias.csv`
+   - 使用 `text_utils.normalize_keyword` 归一化关键词（**保留空格**）
+   - **按关键词长度降序排序**（最长优先），确保 "metal door" 在 "door" 之前匹配
+   - 验证 CatID 有效性
+   - 自动生成 `rules.json`
+
+2. **CSV 标准化工具 `tools/standardize_alias_csv.py`** ✅
+   - 添加表头 `Keyword, CatID`
+   - 规范化 CatID 格式
+   - 自动备份原文件
+
+3. **升级 `core/data_processor.py`** ✅
+   - **整词匹配（Whole Word Matching）**：使用正则表达式 `\b{keyword}\b` 确保只匹配完整单词
+   - 避免 "train" 匹配 "training" 的问题
+   - 提高匹配准确性
+
+#### 第三阶段：文档更新 ✅
+
+1. **创建 Phase 3.5 文档** ✅
+   - `Docs/Phase3.5_Toolchain_DataPipeline.md`
+   - 包含完整的使用指南和快速测试指南
+
+2. **更新现有文档** ✅
+   - 更新 `PROJECT_STRUCTURE.md`
+   - 更新 `Phase3_Progress_Status.md`
+
+### 工具清单
+
+| 工具 | 状态 | 说明 |
+|------|------|------|
+| `tools/verify_subset.py` | ✅ | 微缩验证工具，30秒内验证分类效果 |
+| `core/text_utils.py` | ✅ | 文本归一化工具 |
+| `tools/generate_rules_json.py` | ✅ | 从 CSV 生成规则（已重构） |
+| `tools/standardize_alias_csv.py` | ✅ | CSV 标准化工具 |
+
+### 快速测试指南
+
+```bash
+# 1. 标准化 CSV（首次运行）
+python tools/standardize_alias_csv.py
+
+# 2. 重新生成规则
+python tools/generate_rules_json.py
+
+# 3. 快速验证
+python tools/verify_subset.py AIR
+python tools/verify_subset.py WEAPON
+python tools/verify_subset.py VEHICLE
+```
+
+### 关键技术改进
+
+1. **整词匹配（Whole Word Matching）**
+   - 使用正则表达式 `\b{keyword}\b` 确保只匹配完整单词
+   - 避免误匹配（如 "train" 不会匹配 "training"）
+   - 提高分类准确性
+
+2. **关键词长度排序**
+   - 规则按关键词长度降序排序
+   - 确保长关键词（如 "metal door"）优先于短关键词（如 "door"）匹配
+   - 避免短关键词误匹配长短语
+
+3. **空格保留归一化**
+   - 归一化时保留单词之间的空格
+   - 区分 "metal door" 和 "metaldoor"
+   - 提高匹配精确度
+
+### 下一步
+
+- [ ] 完善 `ucs_alias.csv` 数据（使用 LLM 处理 BoomList）
+- [ ] 优化 `ucs_definitions.json`（添加排他性描述）
+- [ ] 建立自动化测试流程
+- [ ] 性能优化：大规模数据下的规则匹配效率
+
+**详细文档**: 参见 [Phase3.5_Toolchain_DataPipeline.md](Phase3.5_Toolchain_DataPipeline.md)
+
