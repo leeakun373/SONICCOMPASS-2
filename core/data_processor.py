@@ -70,6 +70,10 @@ class DataProcessor(QObject):
         # AI 语义仲裁相关
         self.category_centroids: Dict[str, np.ndarray] = {}  # Category -> 质心向量（从 Platinum Centroids 加载）
         self.ucs_manager = None  # 将在需要时初始化
+        
+        # 强规则映射（从 rules.json 加载）
+        self.strong_rules: Dict[str, str] = {}
+        self._load_rules()
     
     def _cache_exists(self) -> bool:
         """检查缓存是否存在"""
@@ -235,6 +239,30 @@ class DataProcessor(QObject):
         
         return metadata_dicts, embeddings
     
+    def _load_rules(self):
+        """
+        从 data_config/rules.json 加载强规则映射
+        """
+        import json
+        from pathlib import Path
+        
+        config_dir = Path(__file__).parent.parent / "data_config"
+        rules_path = config_dir / "rules.json"
+        
+        if not rules_path.exists():
+            print(f"[WARNING] rules.json 不存在: {rules_path}")
+            print("   请先运行: python tools/generate_rules_json.py")
+            self.strong_rules = {}
+            return
+        
+        try:
+            with open(rules_path, 'r', encoding='utf-8') as f:
+                self.strong_rules = json.load(f)
+            print(f"[INFO] 成功加载 {len(self.strong_rules)} 条强规则")
+        except Exception as e:
+            print(f"[ERROR] 加载 rules.json 失败: {e}")
+            self.strong_rules = {}
+    
     def _load_platinum_centroids(self):
         """
         加载 Platinum Centroids（从预定义的 JSON 定义生成的质心）
@@ -286,50 +314,10 @@ class DataProcessor(QObject):
         
         # --- Level 0: 强规则 (返回 CatID，必须与 CSV 中的 CatID 一致) ---
         # 强规则映射到具体的 CatID，这样 LOD1 能显示具体子类
-        STRONG_RULES = {
-            # WEAPONS 系列（根据 CSV 实际 CatID）
-            'WEAPON': 'WEAPMisc', 'SWORD': 'WEAPSwrd', 'BLADE': 'WEAPSwrd', 'KNIFE': 'WEAPKnif',
-            'BOW': 'WEAPBow', 'ARROW': 'WEAPArro', 'AXE': 'WEAPAxe', 'ARMOR': 'WEAPArmr',
-            'WHIP': 'WEAPWhip', 'POLEARM': 'WEAPPole', 'SIEGE': 'WEAPSiege', 'BLUNT': 'WEAPBlnt',
-            # GUNS 系列
-            'GUN': 'GUNMisc', 'FIREARM': 'GUNMisc', 'PISTOL': 'GUNPis', 'RIFLE': 'GUNRif',
-            'SHOTGUN': 'GUNShotg', 'AUTOMATIC': 'GUNAuto', 'MACHINE': 'GUNAuto',
-            # EXPLOSIONS 系列
-            'EXPLOSION': 'EXPLMisc', 'BLAST': 'EXPLMisc', 'BOMB': 'EXPLReal',
-            # MAGIC 系列
-            'MAGIC': 'MAGSpel', 'SPELL': 'MAGSpel', 'ELEMENT': 'MAGElem', 'ELEMENTAL': 'MAGElem',
-            'SORCERY': 'MAGSpel', 'SUPERNATURAL': 'MAGMisc',
-            # ICE 系列
-            'ICE': 'ICEMisc', 'FROZEN': 'ICEMisc', 'BREAK': 'ICEBrk', 'CRASH': 'ICECrsh',
-            # WATER 系列
-            'WATER': 'WATRMisc', 'LIQUID': 'WATRMisc', 'SPLASH': 'WATRMisc', 'OCEAN': 'WATRWave', 'BUBBLE': 'WATRMisc',
-            # LASERS 系列
-            'LASER': 'LASRMisc', 'LASER GUN': 'LASRGun', 'BLASTER': 'LASRGun',
-            # SCIFI 系列
-            'SCIFI': 'SCIMisc', 'SCI-FI': 'SCIMisc', 'ROBOT': 'SCIMisc', 'FUTURISTIC': 'SCIMisc', 'CYBER': 'SCIMisc',
-            # FIRE 系列
-            'FIRE': 'FIREMisc', 'BURNING': 'FIREBurn', 'FLAME': 'FIREBurn',
-            # WEATHER 系列
-            'RAIN': 'WEARain', 'THUNDER': 'WEATundr', 'STORM': 'STORM',
-            # AMBIENCE 系列
-            'WIND': 'AMBWind', 'AMBIENCE': 'AMBForst', 'ATMOSPHERE': 'AMBForst', 'FOREST': 'AMBForst', 'NATURE': 'AMBForst',
-            # FOLEY 系列
-            'FOOTSTEP': 'FOLFoot', 'WALK': 'FOLFoot', 'CLOTH': 'FOLCloth', 'MOVEMENT': 'FOLFoot',
-            # UI 系列
-            'UI': 'UIUser', 'BUTTON': 'UIUser', 'CLICK': 'UIUser', 'INTERFACE': 'UIUser', 'MENU': 'UIUser',
-            # AIRCRAFT 系列
-            'AIRCRAFT': 'AEROJet', 'PLANE': 'AEROJet', 'JET': 'AEROJet', 'HELICOPTER': 'AEROHeli',
-            # 其他（需要根据实际 CSV 补充）
-            'METAL': 'METLHit', 'METALLIC': 'METLHit', 'IMPACT': 'IMPTHit',
-            'WOOD': 'WOODHit', 'WOODEN': 'WOODHit',
-            'GLASS': 'GLASHit',
-            'VEHICLE': 'VEHEngn', 'CAR': 'VEHEngn', 'ENGINE': 'VEHEngn',
-            'VOICE': 'VOXShout', 'VOCAL': 'VOXShout', 'SHOUT': 'VOXShout',
-            'WHOOSH': 'SWSHWhoosh', 'SWISH': 'SWSHWhoosh'
-        }
+        # 从 rules.json 加载（不再硬编码）
         
         # 检查强规则，直接返回 CatID
-        for keyword, target_id in STRONG_RULES.items():
+        for keyword, target_id in self.strong_rules.items():
             if keyword in text_upper:
                 return target_id, ""  # 找到了就返回 CatID
 

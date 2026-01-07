@@ -25,6 +25,8 @@ SonicCompass/
 ├── tools/                     # 工具脚本
 │   ├── __init__.py
 │   ├── deploy_model.py        # 模型部署工具
+│   ├── generate_rules_json.py # 生成 rules.json 规则文件
+│   ├── generate_platinum_centroids.py # 生成白金质心
 │   ├── verify_phase2.py       # Phase 2 验证脚本
 │   └── verify_pipeline.py     # 流水线验证脚本
 │
@@ -48,6 +50,7 @@ SonicCompass/
 │   ├── presets.json           # 预设配置
 │   ├── ucs_catid_list.csv    # UCS 分类列表
 │   ├── ucs_alias.csv          # UCS 别名
+│   ├── rules.json             # 关键词到 CatID 映射规则（自动生成）
 │   └── pillars_data.csv       # 引力桩数据
 │
 ├── cache/                     # 缓存目录
@@ -106,6 +109,23 @@ python main.py
 - `visualizer.py`: 重定向到 `ui.visualizer`
 
 ## 最新更新
+
+### 2025-01-05 - 颜色映射和规则系统重构
+
+**颜色映射系统重构**:
+- ✅ CategoryColorMapper 支持 Category Name（第一列）作为 key
+- ✅ 修复"色盲眼"问题：现在可以识别大类全名
+- ✅ 支持三种查询方式：Category Name、CatID、CatShort
+
+**规则系统外部化**:
+- ✅ 新增 `tools/generate_rules_json.py` 脚本
+- ✅ 新增 `data_config/rules.json` 规则文件
+- ✅ DataProcessor 从 JSON 文件加载规则，不再硬编码
+- ✅ 所有规则基于 CSV 真实数据生成（82 条规则）
+
+**聚类逻辑修正**:
+- ✅ rebuild_atlas.py 使用 Category Name 而非 Code 进行聚合
+- ✅ UCSManager 优化，确保正确读取 CSV 列
 
 ### 2025-01-04 - 数据源切换与问题修复
 

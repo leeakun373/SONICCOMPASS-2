@@ -50,26 +50,43 @@ class CategoryColorMapper:
             return
 
         try:
-            with open(self.csv_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                # 清洗列名空格
-                reader.fieldnames = [name.strip() for name in reader.fieldnames] if reader.fieldnames else []
+            import pandas as pd
+            # 尝试读取，兼容编码
+            try:
+                df = pd.read_csv(self.csv_path, encoding='utf-8')
+            except:
+                df = pd.read_csv(self.csv_path, encoding='latin1')
+            
+            # 清洗列名 (去空格)
+            df.columns = [c.strip() for c in df.columns]
+            
+            # 打印一下列名，确保我们要找的 Category 在里面
+            # print(f"[DEBUG] CSV Columns: {df.columns.tolist()}")
+
+            for _, row in df.iterrows():
+                # 1. 确定颜色
+                # 这里暂时还得依靠 CatShort/Code 来从 fallback 字典取色
+                # 但建立了索引后，后面查的时候就可以用全名了
+                short = str(row.get('CatShort', '')).strip()
+                color_hex = self.fallback_colors.get(short, '#808080')
+                color = QColor(color_hex)
                 
-                for row in reader:
-                    # 获取关键字段
-                    cat_id = row.get('CatID', '').strip()     # WPNGun
-                    cat_short = row.get('CatShort', '').strip() # WPN
+                # 2. 【核心】把大类全名 (第一列 Category) 注册进去
+                # 例如: "USER INTERFACE" -> 黄色
+                if 'Category' in row:
+                    cat_name = str(row['Category']).strip().upper() # 转大写统一
+                    self.short_to_color[cat_name] = color
                     
-                    # 确定颜色 (使用 CatShort 映射到固定色盘)
-                    # 如果 CSV 里有 Color 列更好，没有的话根据 Short 查 fallback
-                    color_hex = self.fallback_colors.get(cat_short, '#808080')
-                    
-                    if cat_id:
-                        self.catid_to_color[cat_id] = QColor(color_hex)
-                    if cat_short:
-                        self.short_to_color[cat_short] = QColor(color_hex)
-                        
-            print(f"[INFO] Color Mapper: Loaded {len(self.catid_to_color)} CatIDs, {len(self.short_to_color)} Codes")
+                # 3. 把 CatID 也注册进去 (UIBttn -> 黄色)
+                if 'CatID' in row:
+                    cat_id = str(row['CatID']).strip()
+                    self.catid_to_color[cat_id] = color
+                
+                # 4. 把 CatShort 也注册进去 (UI -> 黄色)
+                if short:
+                    self.short_to_color[short] = color
+
+            print(f"[INFO] Color Mapper: 已索引 {len(self.catid_to_color)} 个 CatID, {len(self.short_to_color)} 个大类名称")
             
         except Exception as e:
             print(f"[ERROR] Color Mapper Load Error: {e}")

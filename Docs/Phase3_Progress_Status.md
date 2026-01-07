@@ -1,7 +1,7 @@
 # Phase 3 进度状态文档
 
-**更新时间**: 2025-01-04  
-**状态**: 可视化引擎彻底重写完成，GPU 加速部署成功，数据源切换完成 (Visualization Engine Rewritten, GPU Acceleration Deployed, Data Source Switched)
+**更新时间**: 2025-01-05  
+**状态**: 可视化引擎彻底重写完成，GPU 加速部署成功，数据源切换完成，颜色映射和规则系统重构完成 (Visualization Engine Rewritten, GPU Acceleration Deployed, Data Source Switched, Color Mapping and Rules System Refactored)
 
 ## 当前进度概览
 
@@ -1200,4 +1200,75 @@ ui/
 
 **状态**: 完全查表法重构完成，LOD 显示和聚类问题已修复  
 **更新时间**: 2025-01-04（完全查表法重构）
+
+## 最新更新（2025-01-05 - 颜色映射和规则系统重构）
+
+### 颜色映射系统重构 ⭐ NEW
+
+1. **CategoryColorMapper 增强 (`core/category_color_mapper.py`)**
+   - ✅ 使用 pandas 读取 CSV，兼容 utf-8 和 latin1 编码
+   - ✅ 将 Category Name（第一列）转大写后作为 key 存入 `short_to_color`
+   - ✅ 支持 Category Name、CatID、CatShort 三种查询方式
+   - ✅ 修复"色盲眼"问题：现在可以识别 "USER INTERFACE" 等大类全名
+
+2. **聚类逻辑修正 (`rebuild_atlas.py`)**
+   - ✅ 使用 UCSManager.get_catid_info() 获取 Category Name（第一列）
+   - ✅ 使用 Category Name（转大写）作为 UMAP 聚合标签
+   - ✅ 确保所有聚类都基于 CSV 中的真实 Category Name
+
+3. **UCSManager 优化 (`core/ucs_manager.py`)**
+   - ✅ 使用 `row.get()` 方法安全获取列值
+   - ✅ 确保正确读取 Category, SubCategory, CatID, CatShort 列
+   - ✅ 增强错误处理和容错性
+
+### 规则系统外部化 ⭐ NEW
+
+1. **规则生成工具 (`tools/generate_rules_json.py`)**
+   - ✅ 从 `data_config/ucs_catid_list.csv` 读取真实数据
+   - ✅ 验证所有 CatID 在 CSV 中存在
+   - ✅ 根据关键词映射到真实的 CatID
+   - ✅ 生成 `data_config/rules.json`（82 条规则）
+
+2. **DataProcessor 重构 (`core/data_processor.py`)**
+   - ✅ 移除硬编码的 STRONG_RULES 字典
+   - ✅ 添加 `_load_rules()` 方法，从 `data_config/rules.json` 加载
+   - ✅ 在 `__init__` 中自动加载规则
+   - ✅ 更新 `_extract_category` 使用 `self.strong_rules`
+
+### 修复的问题
+
+- ✅ 修复颜色映射只认缩写不认大类全名的问题
+- ✅ 修复聚类逻辑可能使用 Code 而非 Category Name 的问题
+- ✅ 修复硬编码 STRONG_RULES 包含不存在 CatID（如 UIUser）的问题
+- ✅ 实现规则系统外部化，便于维护和更新
+
+### 技术细节
+
+**颜色映射增强**:
+- CategoryColorMapper 现在支持三种查询方式：
+  1. Category Name（如 "USER INTERFACE"）
+  2. CatID（如 "UIMisc"）
+  3. CatShort（如 "UI"）
+
+**规则系统外部化**:
+- 所有规则存储在 `data_config/rules.json`
+- 规则基于 CSV 中的真实数据生成
+- 可以通过运行 `python tools/generate_rules_json.py` 重新生成
+- 便于维护：修改规则无需修改代码
+
+**数据流验证**:
+
+1. **DataProcessor**: 
+   - 从 `rules.json` 加载规则
+   - 看到 "UI" -> 规则映射到 `UIMisc` -> 存入 metadata['category'] = 'UIMisc'
+
+2. **RebuildAtlas**: 
+   - 看到 `UIMisc` -> 通过 UCSManager 查表得到 `category_name = "USER INTERFACE"` -> UMAP 使用 "USER INTERFACE" 作为目标
+
+3. **CategoryColorMapper**: 
+   - 可以识别 "USER INTERFACE"、"UIMisc"、"UI" 三种格式
+   - 返回统一的颜色
+
+**状态**: 颜色映射和规则系统重构完成  
+**更新时间**: 2025-01-05（颜色映射和规则系统重构）
 

@@ -203,13 +203,17 @@ def rebuild():
             
             parent_label = "UNCATEGORIZED"
             
-            # 必须查表！
+            # 查表！只信表！
             if processor.ucs_manager:
                 info = processor.ucs_manager.get_catid_info(cat_id)
-                if info:
-                    # 直接用大类全名做聚合，最稳
-                    # 比如所有武器都返回 "WEAPONS"
-                    parent_label = info.get('category_name', 'UNCATEGORIZED')
+                if info and info.get('category_name'):
+                    # 获取官方大类名: "USER INTERFACE"
+                    parent_label = info.get('category_name').upper()
+            else:
+                # 查不到表？说明 CSV 加载有问题或者 CatID 是乱编的
+                # 这种情况下，不要截取前缀了，直接标记未知，或者打印警告
+                # print(f"[WARNING] CatID {cat_id} not found in UCS Table")
+                pass
             
             targets.append(parent_label)  # 列表里是 [WEAPONS, WEAPONS, ICE, MAGIC, ...]
         

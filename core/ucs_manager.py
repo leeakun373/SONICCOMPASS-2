@@ -95,10 +95,12 @@ class UCSManager:
             self.fullcategory_to_catid = {}
             
             for _, row in df.iterrows():
-                category = str(row["Category"]).strip()
-                subcategory = str(row["SubCategory"]).strip()
-                cat_id = str(row["CatID"]).strip()
-                cat_short = str(row.get("CatShort", "")).strip()
+                # 按照你的描述直接取列
+                # 建议使用列名比较安全，如果列名变了再改
+                category = str(row.get('Category', '')).strip()      # 第一列
+                subcategory = str(row.get('SubCategory', '')).strip() # 第二列
+                cat_id = str(row.get('CatID', '')).strip()           # 第三列
+                cat_short = str(row.get('CatShort', '')).strip()     # 第四列
                 explanations = str(row.get("Explanations", "")).strip()
                 
                 # 解析同义词
