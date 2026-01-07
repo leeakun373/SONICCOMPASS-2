@@ -619,6 +619,9 @@ class SonicCompassMainWindow(QMainWindow):
                 ucs_manager=ucs_manager
             )
             
+            # 保存 importer 实例供 InspectorPanel 使用
+            self.importer = importer
+            
             vector_engine = VectorEngine(model_path="./models/bge-m3")
             
             # 创建处理器
@@ -695,6 +698,9 @@ class SonicCompassMainWindow(QMainWindow):
             # 设置画布交互
             self._setup_canvas_interaction()
             
+            # 设置 InspectorPanel 的 importer（用于获取原始元数据）
+            self.inspector.set_importer(importer)
+            
             # 构建库文件树
             if self.config_manager.library_root:
                 self.inspector._build_library_tree(self.config_manager.library_root, metadata)
@@ -704,7 +710,8 @@ class SonicCompassMainWindow(QMainWindow):
             self.progress_label.setVisible(False)
             
             self.status_label.setText(f"Loaded {len(metadata)} items")
-            importer.close()
+            # 注意：不关闭 importer，因为 InspectorPanel 需要它来查询原始数据
+            # importer.close()
             
         except Exception as e:
             error_msg = str(e)

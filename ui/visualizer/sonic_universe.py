@@ -169,18 +169,44 @@ class HexGridLayer(QGraphicsItem):
             mode_cat_id = Counter(cat_ids).most_common(1)[0][0]
             
             # 【关键】通过 UCSManager 反查信息
+            # 优先使用 get_main_category_by_id 获取主类别名称（确保是主类别，如 "AMBIENCE"）
             cat_name = mode_cat_id  # 默认显示 CatID
             sub_name = ""
             color = QColor('#666666')
+            main_category = None  # 用于颜色查询的主类别名称
             
             if self.ucs_manager:
+                # 优先使用 get_main_category_by_id（确保是主类别名称）
+                main_category = self.ucs_manager.get_main_category_by_id(mode_cat_id)
+                if main_category != "UNCATEGORIZED":
+                    cat_name = main_category  # 使用主类别名称（如 "AMBIENCE"）
+                else:
+                    # 回退到 get_catid_info
+                    info = self.ucs_manager.get_catid_info(mode_cat_id)
+                    if info and info.get('category_name'):
+                        cat_name = info.get('category_name').upper()
+                        main_category = cat_name  # 使用 category_name 作为主类别
+                    else:
+                        # 最后回退：使用 CatID 前缀启发式
+                        if len(mode_cat_id) >= 3:
+                            cat_name = mode_cat_id[:3]  # "AMBFORST" -> "AMB"
+                        else:
+                            cat_name = mode_cat_id  # 最后回退到 CatID
+                
+                # 获取子类别信息
                 info = self.ucs_manager.get_catid_info(mode_cat_id)
                 if info:
-                    cat_name = info.get('category_name', mode_cat_id)  # LOD0: WEAPONS
-                    sub_name = info.get('subcategory_name', '')       # LOD1: GUN
+                    sub_name = info.get('subcategory_name', '')  # LOD1: GUN
             
+            # 获取颜色：优先使用主类别名称，回退到 CatID
             if mapper:
-                color = mapper.get_color(mode_cat_id)
+                if main_category and main_category != "UNCATEGORIZED":
+                    color = mapper.get_color(main_category) or mapper.get_color(mode_cat_id)
+                else:
+                    color = mapper.get_color(mode_cat_id)
+                if not color or color == QColor(255, 255, 255):
+                    # 如果颜色获取失败，使用哈希颜色
+                    color = self._get_color_safe(mode_cat_id)
             
             # LOD 0 聚类准备（按 Category Name 分组）
             if cat_name not in category_positions:
@@ -189,34 +215,37 @@ class HexGridLayer(QGraphicsItem):
             
             # LOD 1 标签（每个 Hex 的子类标签）
             center = self._hex_to_pixel(q, r)
+            
+            # 确保获取子类信息：优先从已获取的 info 中提取，否则重新查询
+            if not sub_name or sub_name == "UNKNOWN":
+                if mode_cat_id and self.ucs_manager:
+                    info = self.ucs_manager.get_catid_info(mode_cat_id)
+                    if info:
+                        sub_name = info.get('subcategory_name', '')
+                        # 如果 subcategory_name 是 "UNKNOWN"，尝试从 catid_to_category 直接获取
+                        if not sub_name or sub_name == "UNKNOWN":
+                            if hasattr(self.ucs_manager, 'catid_to_category') and mode_cat_id in self.ucs_manager.catid_to_category:
+                                cat_obj = self.ucs_manager.catid_to_category[mode_cat_id]
+                                if cat_obj and cat_obj.subcategory:
+                                    sub_name = cat_obj.subcategory.strip().upper()
+            
             # 过滤掉 "UNKNOWN" 和空字符串，只显示有效的子类名称
-            if sub_name and sub_name != "UNKNOWN" and sub_name.strip():
+            if sub_name and sub_name != "UNKNOWN" and sub_name.strip() and len(sub_name) > 0:
                 self.subcategory_labels[(q, r)] = {
                     'text': sub_name,
                     'pos': center,
                     'color': color
                 }
-            elif mode_cat_id and self.ucs_manager:
-                # 如果没有 sub_name，尝试从 UCSManager 获取
-                info = self.ucs_manager.get_catid_info(mode_cat_id)
-                if info:
-                    sub_name = info.get('subcategory_name', '')
-                    # 过滤掉 "UNKNOWN" 和空字符串
-                    if sub_name and sub_name != "UNKNOWN" and sub_name.strip():
-                        self.subcategory_labels[(q, r)] = {
-                            'text': sub_name,
-                            'pos': center,
-                            'color': color
-                        }
 
         # 生成大类标签（连通域）
         print(f"[DEBUG] _generate_labels: 开始查找连通域，类别数量={len(category_positions)}", flush=True)
         if category_positions:
             components = self._find_connected_components(category_positions)
             print(f"[DEBUG] _generate_labels: 连通域查找完成，共 {len(components)} 个连通域", flush=True)
-            # 过滤小岛屿
-            large_components = [c for c in components if len(c[1]) >= 3]
-            print(f"[DEBUG] _generate_labels: 过滤后剩余 {len(large_components)} 个大岛屿", flush=True)
+            # 过滤小岛屿：只显示较大的连通域（片区），像地图那样一个片区一个标签
+            # 阈值 >= 5 确保只显示较大的片区，而不是每个蜂窝都显示标签
+            large_components = [c for c in components if len(c[1]) >= 5]
+            print(f"[DEBUG] _generate_labels: 过滤后剩余 {len(large_components)} 个标签区域（阈值 >= 5）", flush=True)
             
             for category, coords in large_components:
                 # 计算几何中心
@@ -224,8 +253,8 @@ class HexGridLayer(QGraphicsItem):
                 avg_r = sum(c[1] for c in coords) / len(coords)
                 center = self._hex_to_pixel(avg_q, avg_r)
         
-                # 获取颜色
-                color = QColor(255, 255, 255)
+                # 获取颜色：优先使用主类别名称查询
+                color = QColor('#666666')  # 默认灰色，不使用白色
                 if mapper:
                     # 尝试从该组中找个代表颜色
                     sample_hex = coords[0]
@@ -233,14 +262,35 @@ class HexGridLayer(QGraphicsItem):
                         idx = self.grid_data[sample_hex][0]
                         if idx < len(metadata):
                             cid = metadata[idx].get('category', '')
-                            c = mapper.get_color(cid)
-                            if c: color = c
+                            # 优先使用主类别名称查询颜色
+                            if self.ucs_manager:
+                                main_cat = self.ucs_manager.get_main_category_by_id(cid)
+                                if main_cat != "UNCATEGORIZED":
+                                    c = mapper.get_color(main_cat) or mapper.get_color(cid)
+                                else:
+                                    c = mapper.get_color(cid)
+                            else:
+                                c = mapper.get_color(cid)
+                            if c and c != QColor(255, 255, 255):
+                                color = c
+                            else:
+                                # 如果颜色获取失败，使用哈希颜色
+                                color = self._get_color_safe(cid)
+                
+                # 动态字体大小：小岛屿字小，大岛屿字大
+                if len(coords) < 3:
+                    font_size = 8
+                elif len(coords) < 10:
+                    font_size = 10
+                else:
+                    font_size = 14
                 
                 self.category_labels.append({
                     'text': category,  # 显示 Category Name (如 WEAPONS)
                     'pos': center,
                     'color': color,
-                    'area': len(coords)
+                    'area': len(coords),
+                    'font_size': font_size
                 })
     
     def _get_color_safe(self, key_str):
@@ -428,12 +478,12 @@ class HexGridLayer(QGraphicsItem):
         return placed_labels
     
     def _draw_category_labels(self, painter, clip_rect):
-        """修复：移除黑色背景框，使用发光/阴影文字"""
-        # 字体大小随缩放反向调整
+        """修复：使用 label 中的 color，智能选择文字颜色确保可读性"""
+        # 字体大小随缩放反向调整，或使用 label 中存储的 font_size
         base_size = self.hex_size * 1.2
         zoom = max(0.1, self.current_zoom)
-        font_size = int(base_size / math.sqrt(zoom))
-        font = QFont("Segoe UI", font_size, QFont.Weight.Bold)
+        default_font_size = int(base_size / math.sqrt(zoom))
+        font = QFont("Segoe UI", default_font_size, QFont.Weight.Bold)
         font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
         painter.setFont(font)
         
@@ -443,6 +493,11 @@ class HexGridLayer(QGraphicsItem):
                 
             text = label['text']
             pos = label['pos']
+            
+            # 使用 label 中存储的 font_size（如果存在）
+            if 'font_size' in label:
+                font.setPointSize(label['font_size'])
+                painter.setFont(font)
                 
             # 计算位置
             fm = painter.fontMetrics()
@@ -451,21 +506,30 @@ class HexGridLayer(QGraphicsItem):
             x = pos.x() - w / 2
             y = pos.y() + h / 3  # 视觉垂直居中调整
             
-            # 1. 绘制阴影/描边 (替代黑色方块)
-            painter.setPen(QColor(0, 0, 0, 200))
-            for dx, dy in [(-1,-1), (-1,1), (1,-1), (1,1), (0,2)]:
-                 painter.drawText(int(x+dx), int(y+dy), text)
+            # 获取 label 中存储的颜色
+            base_color = label.get('color', QColor(255, 255, 255))
+            if not isinstance(base_color, QColor):
+                base_color = QColor(base_color)
+            
+            # 智能颜色策略：根据颜色亮度选择文字颜色
+            # value() 返回 HSV 中的 V（亮度），范围 0-255
+            if base_color.value() < 100:
+                # 颜色太暗，使用白色文字
+                text_color = QColor(255, 255, 255, 255)
+            else:
+                # 颜色足够亮，使用原色或稍微提亮
+                text_color = base_color.lighter(120)  # 提亮 20%
+            
+            # 1. 绘制黑色轮廓（1px 宽度）- 使用多次绘制创建粗轮廓效果
+            outline_pen = QPen(QColor(0, 0, 0, 255), 1.0)
+            outline_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(outline_pen)
+            # 绘制多个方向的轮廓以创建粗边效果
+            for dx, dy in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
+                painter.drawText(int(x+dx), int(y+dy), text)
                 
-            # 2. 绘制主体文字
-            color = label.get('color', QColor(255, 255, 255))
-            # 强制文字为亮白色或原色高亮版
-            main_color = QColor(color)
-            main_color.setAlpha(255)
-            # 如果原色太暗，强制提亮
-            if main_color.value() < 150:
-                main_color = QColor(255, 255, 255)
-                
-            painter.setPen(main_color)
+            # 2. 绘制主体文字（使用智能选择的颜色）
+            painter.setPen(text_color)
             painter.drawText(int(x), int(y), text)
     
     def _greedy_grid_culling(self, label_items):
@@ -530,7 +594,7 @@ class HexGridLayer(QGraphicsItem):
         return filtered_items
     
     def _draw_subcategory_labels(self, painter, clip_rect):
-        """修复：SubCategory 标签使用正确的分类颜色（解决 LOD 1 全白问题）"""
+        """修复：使用 label_data 中的 color，智能选择文字颜色确保可读性"""
         base_size = self.hex_size * 0.5
         font = QFont("Segoe UI", int(base_size), QFont.Weight.DemiBold)
         painter.setFont(font)
@@ -541,22 +605,36 @@ class HexGridLayer(QGraphicsItem):
                 continue
             
             text = label_data['text']
-            # 获取该标签原本分配的颜色 (在 _generate_labels 里已经计算并存入 label_data['color'] 了)
-            base_color = label_data.get('color', QColor(200, 200, 200))
+            fm = painter.fontMetrics()
+            w = fm.horizontalAdvance(text)
+            h = fm.height()
+            x = pos.x() - w / 2
+            y = pos.y() + h / 3
             
-            # 绘制文字阴影
-            painter.setPen(QColor(0,0,0,180))
-            painter.drawText(pos.x() - painter.fontMetrics().horizontalAdvance(text)/2 + 1, 
-                           pos.y() + painter.fontMetrics().height()/3 + 1, text)
+            # 获取 label_data 中存储的颜色
+            base_color = label_data.get('color', QColor(255, 255, 255))
+            if not isinstance(base_color, QColor):
+                base_color = QColor(base_color)
             
-            # 【关键修改】使用分类颜色，并稍微提亮以保证在黑底上的可读性
-            text_color = QColor(base_color)
-            text_color = text_color.lighter(150) # 提亮 50%
-            text_color.setAlpha(220)
+            # 智能颜色策略：根据颜色亮度选择文字颜色
+            if base_color.value() < 100:
+                # 颜色太暗，使用白色文字
+                text_color = QColor(255, 255, 255, 255)
+            else:
+                # 颜色足够亮，使用原色或稍微提亮
+                text_color = base_color.lighter(120)  # 提亮 20%
             
+            # 1. 绘制黑色轮廓（1px 宽度）- 使用多次绘制创建粗轮廓效果
+            outline_pen = QPen(QColor(0, 0, 0, 255), 1.0)
+            outline_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(outline_pen)
+            # 绘制多个方向的轮廓以创建粗边效果
+            for dx, dy in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
+                painter.drawText(int(x+dx), int(y+dy), text)
+            
+            # 2. 绘制主体文字（使用智能选择的颜色）
             painter.setPen(text_color)
-            painter.drawText(pos.x() - painter.fontMetrics().horizontalAdvance(text)/2, 
-                           pos.y() + painter.fontMetrics().height()/3, text)
+            painter.drawText(int(x), int(y), text)
         
     def update_lod(self, zoom):
         self.current_zoom = zoom

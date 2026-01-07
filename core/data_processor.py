@@ -215,10 +215,50 @@ class DataProcessor(QObject):
         print(f"[INFO] 向量化完成，向量维度: {embeddings.shape}")
         sys.stdout.flush()
         
+        # 4. 【新增】AI 质心预测（针对 UNCATEGORIZED 项目）
+        if self.category_centroids and len(embeddings) > 0:
+            print(f"[INFO] 开始AI质心预测（针对未分类项目）...")
+            sys.stdout.flush()
+            ai_predicted_count = 0
+            
+            for i, meta_dict in enumerate(metadata_dicts):
+                if i >= len(embeddings):
+                    break
+                
+                # 检查是否为未分类项目
+                current_category = meta_dict.get('category', '')
+                if not current_category or current_category == 'UNCATEGORIZED':
+                    # 计算与所有质心的余弦相似度
+                    embedding = embeddings[i]
+                    best_cat_id = None
+                    best_score = -1.0
+                    
+                    for cat_id, centroid in self.category_centroids.items():
+                        # 已归一化，直接点积即可（余弦相似度）
+                        score = np.dot(embedding, centroid)
+                        if score > best_score:
+                            best_score = score
+                            best_cat_id = cat_id
+                    
+                    # 阈值检查（超参数，可调：太少预测 -> 降到 0.35；瞎猜 -> 升到 0.5）
+                    if best_cat_id and best_score > 0.4:
+                        meta_dict['category'] = best_cat_id
+                        meta_dict['is_ai_predicted'] = True
+                        ai_predicted_count += 1
+                        if ai_predicted_count <= 10:  # 只打印前10个，避免输出过多
+                            filename = meta_dict.get('filename', 'Unknown')
+                            print(f"   [AI预测] {filename} -> {best_cat_id} (相似度: {best_score:.3f})")
+            
+            if ai_predicted_count > 0:
+                print(f"[INFO] AI质心预测完成，共预测 {ai_predicted_count} 个未分类项目")
+            else:
+                print(f"[INFO] AI质心预测完成，未发现需要预测的项目")
+            sys.stdout.flush()
+        
         if QT_AVAILABLE:
             self.progress_signal.emit(80, "Saving cache...")
         
-        # 4. 保存到缓存
+        # 5. 保存到缓存
         with open(self.metadata_cache_path, 'wb') as f:
             pickle.dump(metadata_dicts, f)
         
@@ -319,16 +359,23 @@ class DataProcessor(QObject):
         # 检查强规则，直接返回 CatID
         for keyword, target_id in self.strong_rules.items():
             if keyword in text_upper:
-                return target_id, ""  # 找到了就返回 CatID
+                # 对强规则结果也进行严格验证
+                if self.ucs_manager:
+                    validated = self.ucs_manager.enforce_strict_category(target_id)
+                    return validated, ""  # 找到了就返回 CatID
+                return target_id, ""
 
         # --- Level 1: 显式 Metadata ---
-        # 如果原始数据里有 AIRBlow，直接用
+        # 如果原始数据里有 AIRBlow，先用严格UCS验证
         if raw_cat and "MISC" not in raw_cat.upper() and raw_cat.upper() != "UNCATEGORIZED":
             if self.ucs_manager:
-                # 验证一下这是否是合法的 CatID
-                info = self.ucs_manager.get_catid_info(raw_cat)
-                if info:
-                    return raw_cat, ""  # 原样返回 CatID
+                # 严格执行UCS验证（数据安检门）
+                validated_cat = self.ucs_manager.enforce_strict_category(raw_cat)
+                if validated_cat != "UNCATEGORIZED":
+                    # 验证一下这是否是合法的 CatID
+                    info = self.ucs_manager.get_catid_info(validated_cat)
+                    if info:
+                        return validated_cat, ""  # 返回验证后的 CatID
 
         # --- Level 2: AI 向量匹配 ---
         if not self.category_centroids:
@@ -349,7 +396,11 @@ class DataProcessor(QObject):
                     best_cat_id = cid
             
             if best_cat_id and best_score > 0.4:
-                return best_cat_id, ""  # 直接返回 WPNGun，不要截断！
+                # 对AI预测结果也进行严格验证
+                if self.ucs_manager:
+                    validated = self.ucs_manager.enforce_strict_category(best_cat_id)
+                    return validated, ""  # 直接返回验证后的 CatID
+                return best_cat_id, ""
                 
         except Exception as e:
             print(f"AI Arbitration Error: {e}")

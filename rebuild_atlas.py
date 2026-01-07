@@ -193,50 +193,75 @@ def rebuild():
         # 加载刚刚生成的 embeddings 和 metadata
         meta, embeddings = processor.load_index()
         
-        # 提取用于监督学习的标签（大类全名）
-        # 关键：从 CatID（如 WEAPArmr）提取 Category Name（如 WEAPONS）作为聚合目标
+        # 提取用于监督学习的标签（UCS主类别名称）
+        # 关键：从 CatID（如 AMBFORST）映射到主类别名称（如 AMBIENCE），确保按82个主类别聚类
         targets = []
+        missing_count = 0
+        
+        # 确保 ucs_manager 已初始化
+        if not processor.ucs_manager:
+            print("   [警告] UCSManager 未初始化，无法进行主类别映射")
+            sys.stdout.flush()
+        
         for m in meta:
-            cat_id = m.get('category', 'UNCATEGORIZED') if isinstance(m, dict) else getattr(m, 'category', 'UNCATEGORIZED')
-            if not cat_id or cat_id == '':
-                cat_id = 'UNCATEGORIZED'
+            # metadata 的 'category' 字段存储的是 CatID（如 "AMBFORST"）
+            raw_cat = m.get('category', '') if isinstance(m, dict) else getattr(m, 'category', '')
             
-            parent_label = "UNCATEGORIZED"
+            if not raw_cat or raw_cat == '' or raw_cat == 'UNCATEGORIZED':
+                # 缺失类别：标记为 "UNCATEGORIZED"，后续将编码为 -1
+                targets.append("UNCATEGORIZED")
+                missing_count += 1
+                continue
             
-            # 查表！只信表！
+            # 使用 UCSManager 将 CatID 映射到主类别名称
             if processor.ucs_manager:
-                info = processor.ucs_manager.get_catid_info(cat_id)
-                if info and info.get('category_name'):
-                    # 获取官方大类名: "USER INTERFACE"
-                    parent_label = info.get('category_name').upper()
+                target_label = processor.ucs_manager.get_main_category_by_id(raw_cat)
             else:
-                # 查不到表？说明 CSV 加载有问题或者 CatID 是乱编的
-                # 这种情况下，不要截取前缀了，直接标记未知，或者打印警告
-                # print(f"[WARNING] CatID {cat_id} not found in UCS Table")
-                pass
+                target_label = "UNCATEGORIZED"
             
-            targets.append(parent_label)  # 列表里是 [WEAPONS, WEAPONS, ICE, MAGIC, ...]
+            # 验证：如果映射结果为 "UNCATEGORIZED"，标记为缺失
+            if target_label == "UNCATEGORIZED":
+                targets.append("UNCATEGORIZED")
+                missing_count += 1
+            else:
+                targets.append(target_label)  # 列表里是 [AMBIENCE, AMBIENCE, WEAPONS, WEAPONS, ...]
         
         # 使用 LabelEncoder 编码为整数数组
+        # 将 "UNCATEGORIZED" 标记为特殊值，编码后再替换为 -1
         label_encoder = LabelEncoder()
         targets_encoded = label_encoder.fit_transform(targets)
         
-        # 简单统计
-        unique_cats = set(targets)
-        print(f"   [统计] 提取到 {len(unique_cats)} 个用于监督的分类标签（大类全名）")
-        if len(unique_cats) < 5:
-            print(f"   [警告] 分类过少: {list(unique_cats)[:10]}... 请检查 AI 仲裁逻辑")
+        # 将 "UNCATEGORIZED" 的标签替换为 -1
+        uncategorized_label_idx = None
+        for i, cls in enumerate(label_encoder.classes_):
+            if cls == 'UNCATEGORIZED':
+                uncategorized_label_idx = i
+                break
+        
+        if uncategorized_label_idx is not None:
+            targets_encoded[targets_encoded == uncategorized_label_idx] = -1
+        
+        # 验证打印：检查唯一主类别数量
+        unique_cats = set([t for t in targets if t != 'UNCATEGORIZED'])
+        print(f"✅ [Supervision] Unique Main Categories found: {len(unique_cats)}")
+        if len(unique_cats) > 100:
+            print(f"⚠️  [警告] 唯一类别数过多 ({len(unique_cats)})，可能仍在使用 CatID 而非主类别名称")
+        elif len(unique_cats) < 5:
+            print(f"⚠️  [警告] 分类过少 ({len(unique_cats)})，请检查 AI 仲裁逻辑")
         else:
-            print(f"   类别: {', '.join(sorted(unique_cats)[:20])}{'...' if len(unique_cats) > 20 else ''}")
+            print(f"📋 Sample Labels: {list(sorted(unique_cats))[:15]}")
+        
+        if missing_count > 0:
+            print(f"   [统计] 缺失类别数量: {missing_count} (已标记为 -1)")
         sys.stdout.flush()
 
         reducer = umap.UMAP(
             n_components=2,
-            n_neighbors=50,
+            n_neighbors=15,  # 调整为 15 以保持更好的全局结构
             min_dist=0.001,
             spread=0.5,
             metric='cosine',
-            target_weight=0.95, # 强监督
+            target_weight=0.75,  # 高监督：0.75 形成紧密大陆，强制按主类别聚类
             target_metric='categorical',
             random_state=42,
             n_jobs=1

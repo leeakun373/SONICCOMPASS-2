@@ -66,6 +66,13 @@ class UCSManager:
         # 格式: "AIRBlow": {"category": "AIR", "subcategory": "BLOW", "name": "AIR - BLOW"}
         # 使用 CatShort 作为 category（因为 Color Mapper 认这个）
         self.catid_lookup: Dict[str, Dict[str, str]] = {}
+        
+        # 有效类别集合（用于严格验证）
+        self.valid_categories: set = set()
+        
+        # CatID -> Main Category 映射（用于UMAP监督学习）
+        # 格式: "AMBFORST" -> "AMBIENCE"
+        self.catid_to_main_category: Dict[str, str] = {}
     
     def load_all(self) -> None:
         """加载所有UCS相关配置文件"""
@@ -137,10 +144,37 @@ class UCSManager:
                     "name": f"{category} - {subcategory}"
                 }
                 
+                # 构建有效类别集合（用于严格验证）
+                # 包含所有 CatID、CatShort、Category 名称（转大写）
+                if cat_id:
+                    self.valid_categories.add(cat_id.upper())
+                if cat_short:
+                    self.valid_categories.add(cat_short.upper())
+                if category:
+                    self.valid_categories.add(category.upper())
+                
+                # 构建 CatID -> Main Category 映射（用于UMAP监督学习）
+                # Key: CatID (规范化: 转大写) -> Value: Category (主类别名称, 规范化: 转大写)
+                if cat_id and category:
+                    normalized_cat_id = cat_id.strip().upper()
+                    normalized_category = category.strip().upper()
+                    self.catid_to_main_category[normalized_cat_id] = normalized_category
+                
         except pd.errors.EmptyDataError:
             raise UCSError("UCS CatID列表文件为空")
         except Exception as e:
             raise UCSError(f"加载UCS CatID列表失败: {e}") from e
+        
+        # 验证唯一主类别数量（应该约82个）
+        unique_main_categories = set(self.catid_to_main_category.values())
+        print(f"[INFO] UCS Manager: 加载了 {len(unique_main_categories)} 个唯一主类别")
+        if len(unique_main_categories) > 90:
+            print(f"[WARNING] 主类别数量异常 ({len(unique_main_categories)})，预期约82个")
+            print(f"   前20个主类别: {list(sorted(unique_main_categories))[:20]}")
+        elif len(unique_main_categories) < 70:
+            print(f"[WARNING] 主类别数量过少 ({len(unique_main_categories)})，预期约82个")
+        else:
+            print(f"[INFO] 主类别数量正常: {len(unique_main_categories)} 个")
     
     def load_alias_list(self) -> None:
         """加载UCS别名列表文件"""
@@ -405,6 +439,78 @@ class UCSManager:
                     break
         
         return results
+    
+    def enforce_strict_category(self, raw_cat: str) -> str:
+        """
+        严格执行UCS类别验证和规范化（数据安检门）
+        
+        如果输入类别不在有效UCS类别集合中，尝试通过别名解析或模糊匹配。
+        如果完全未知，返回 "UNCATEGORIZED"，不传递原始垃圾字符串。
+        
+        Args:
+            raw_cat: 原始类别字符串
+            
+        Returns:
+            标准化的UCS类别（CatID），如果无效则返回 "UNCATEGORIZED"
+        """
+        if not raw_cat:
+            return "UNCATEGORIZED"
+        
+        # 规范化输入（去除空白、转大写，使用副本）
+        normalized_cat = str(raw_cat).strip().upper()
+        
+        # 如果已经在有效集合中，直接返回
+        if normalized_cat in self.valid_categories:
+            return normalized_cat
+        
+        # 尝试通过别名解析
+        resolved_catid = self.resolve_alias(normalized_cat)
+        if resolved_catid and resolved_catid in self.catid_to_category:
+            return resolved_catid
+        
+        # 尝试直接查找 CatID（精确匹配）
+        if normalized_cat in self.catid_to_category:
+            return normalized_cat
+        
+        # 如果完全未知，返回字面字符串 "UNCATEGORIZED"
+        # 关键：不要传递原始垃圾字符串
+        return "UNCATEGORIZED"
+    
+    def get_main_category_by_id(self, cat_id: str) -> str:
+        """
+        根据 CatID 获取主类别名称（用于UMAP监督学习）
+        
+        将特定的 CatID（如 "AMBFORST"）映射到主类别名称（如 "AMBIENCE"），
+        确保 UMAP 按 82 个主类别聚类，而不是数百个 CatID 小岛。
+        
+        Args:
+            cat_id: CatID 字符串（如 "AMBFORST", "WPNLASR"），也可能是主类别名称
+        
+        Returns:
+            主类别名称（如 "AMBIENCE"），如果未找到则返回 "UNCATEGORIZED"
+        """
+        if not cat_id:
+            return "UNCATEGORIZED"
+        
+        # 规范化输入（去除空白、转大写）
+        normalized_input = str(cat_id).strip().upper()
+        
+        # 1. 首先尝试在 CatID -> Main Category 映射中查找
+        if normalized_input in self.catid_to_main_category:
+            return self.catid_to_main_category[normalized_input]
+        
+        # 2. 回退检查：输入本身是否已经是有效的主类别名称
+        # 检查是否在有效类别集合中（可能是主类别名称）
+        if normalized_input in self.valid_categories:
+            # 进一步验证：检查是否在某个 CatID 对应的主类别中
+            # 如果输入本身就是主类别名称，直接返回
+            # 通过检查 catid_to_main_category 的值集合来判断
+            main_categories = set(self.catid_to_main_category.values())
+            if normalized_input in main_categories:
+                return normalized_input
+        
+        # 3. 如果都找不到，返回 "UNCATEGORIZED"
+        return "UNCATEGORIZED"
 
 
 if __name__ == "__main__":

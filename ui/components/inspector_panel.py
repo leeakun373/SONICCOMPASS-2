@@ -25,7 +25,67 @@ class InspectorPanel(QScrollArea):
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         self.setWidget(content)
+        
+        # 存储 importer 实例用于获取原始数据
+        self.importer = None
+        self.raw_metadata_cache = {}  # recID -> raw_metadata 缓存
+        
         self.clear()
+    
+    def set_importer(self, importer):
+        """
+        设置数据导入器实例，用于获取原始元数据
+        
+        Args:
+            importer: SoundminerImporter 实例
+        """
+        self.importer = importer
+        self.raw_metadata_cache.clear()  # 清空缓存
+    
+    def _get_raw_metadata(self, file_data: Dict) -> Optional[Dict]:
+        """
+        从数据库获取原始元数据
+        
+        Args:
+            file_data: 渲染用的元数据（可能经过处理）
+            
+        Returns:
+            原始元数据字典，如果无法获取则返回 None
+        """
+        if not self.importer:
+            return None
+        
+        # 获取 recID
+        recid = file_data.get('recID') or file_data.get('recid') or file_data.get('id')
+        if not recid:
+            return None
+        
+        # 检查缓存
+        if recid in self.raw_metadata_cache:
+            return self.raw_metadata_cache[recid]
+        
+        # 从数据库查询原始数据
+        try:
+            self.importer._connect()
+            if not self.importer.table_name:
+                self.importer.table_name = self.importer._detect_table_name()
+                self.importer.field_mapping = self.importer.FIELD_MAPPINGS.get(self.importer.table_name, {})
+            
+            cursor = self.importer.conn.cursor()
+            recid_field = self.importer.field_mapping.get('recID', 'recID')
+            query = f"SELECT * FROM {self.importer.table_name} WHERE {recid_field} = ?"
+            cursor.execute(query, (recid,))
+            row = cursor.fetchone()
+            
+            if row:
+                # 转换为字典
+                raw_meta = dict(row)
+                self.raw_metadata_cache[recid] = raw_meta
+                return raw_meta
+        except Exception as e:
+            print(f"[WARNING] 无法从数据库获取原始元数据 (recID={recid}): {e}")
+        
+        return None
     
     def clear(self):
         """清空面板"""
@@ -73,7 +133,7 @@ class InspectorPanel(QScrollArea):
         self.layout.addStretch()
     
     def show_metadata(self, metadata: dict):
-        """显示元数据"""
+        """显示元数据（使用原始数据）"""
         self.clear()
         
         title = QLabel("INSPECTOR")
@@ -83,64 +143,90 @@ class InspectorPanel(QScrollArea):
         title.setStyleSheet("color: #5E6AD2; text-transform: uppercase;")
         self.layout.addWidget(title)
         
-        # 库（Library）- 从filepath提取或使用metadata中的library字段
-        library_name = None
-        if metadata.get('library'):
-            library_name = metadata['library']
-        elif metadata.get('filepath'):
-            # 从filepath中提取库名（第一个路径段）
-            from pathlib import Path
-            filepath = metadata['filepath']
-            if filepath:
-                path_parts = Path(filepath).parts
-                if len(path_parts) > 0:
-                    # 通常库名是路径的第一或第二个部分
-                    library_name = path_parts[0] if path_parts[0] else (path_parts[1] if len(path_parts) > 1 else None)
+        # 获取原始元数据
+        raw_metadata = self._get_raw_metadata(metadata)
+        if not raw_metadata:
+            # 如果无法获取原始数据，使用传入的 metadata（向后兼容）
+            raw_metadata = metadata
+            print("[WARNING] 无法获取原始元数据，使用渲染数据")
         
-        if library_name:
-            library_label = QLabel(f"<b>库:</b> {library_name}")
-            library_label.setWordWrap(True)
-            library_label.setStyleSheet("color: #8B9FFF;")
-            self.layout.addWidget(library_label)
+        # 原始元数据部分
+        raw_section_title = QLabel("RAW METADATA")
+        raw_section_title.setStyleSheet("color: #5F636E; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 20px;")
+        self.layout.addWidget(raw_section_title)
         
         # 文件路径
-        if metadata.get('filepath'):
-            filepath_label = QLabel(f"<b>文件路径:</b><br><span style='font-family: Consolas, monospace; color: #A0A0A0;'>{metadata['filepath']}</span>")
+        filepath = raw_metadata.get('filepath') or raw_metadata.get('Filepath') or ""
+        if filepath:
+            filepath_label = QLabel(f"<b>文件路径:</b><br><span style='font-family: Consolas, monospace; color: #A0A0A0;'>{filepath}</span>")
             filepath_label.setWordWrap(True)
             filepath_label.setOpenExternalLinks(False)
             self.layout.addWidget(filepath_label)
+        else:
+            empty_label = QLabel("<b>文件路径:</b> <span style='color: #FF6B6B;'>[Empty]</span>")
+            self.layout.addWidget(empty_label)
         
         # 文件名
-        if metadata.get('filename'):
-            filename_label = QLabel(f"<b>文件名:</b> {metadata['filename']}")
+        filename = raw_metadata.get('filename') or raw_metadata.get('Filename') or ""
+        if filename:
+            filename_label = QLabel(f"<b>文件名:</b> {filename}")
             filename_label.setWordWrap(True)
             self.layout.addWidget(filename_label)
+        else:
+            empty_label = QLabel("<b>文件名:</b> <span style='color: #FF6B6B;'>[Empty]</span>")
+            self.layout.addWidget(empty_label)
         
         # RecID
-        if metadata.get('recID'):
-            recid_label = QLabel(f"<b>RecID:</b> {metadata['recID']}")
+        recid = raw_metadata.get('recID') or raw_metadata.get('recid') or raw_metadata.get('id') or ""
+        if recid:
+            recid_label = QLabel(f"<b>RecID:</b> {recid}")
             self.layout.addWidget(recid_label)
+        else:
+            empty_label = QLabel("<b>RecID:</b> <span style='color: #FF6B6B;'>[None]</span>")
+            self.layout.addWidget(empty_label)
         
-        # 分类
-        if metadata.get('category'):
-            cat_label = QLabel(f"<b>分类:</b> {metadata['category']}")
+        # Category（原始）
+        category = raw_metadata.get('category') or raw_metadata.get('Category') or ""
+        if category:
+            cat_label = QLabel(f"<b>Category:</b> {category}")
             self.layout.addWidget(cat_label)
+        else:
+            empty_label = QLabel("<b>Category:</b> <span style='color: #FF6B6B;'>[Empty]</span>")
+            self.layout.addWidget(empty_label)
         
-        # 描述
-        if metadata.get('description'):
-            desc_label = QLabel(f"<b>描述:</b><br><span style='color: #E1E4E8;'>{metadata['description']}</span>")
+        # SubCategory（如果存在）
+        subcategory = raw_metadata.get('subcategory') or raw_metadata.get('SubCategory') or raw_metadata.get('Subcategory') or ""
+        if subcategory:
+            subcat_label = QLabel(f"<b>SubCategory:</b> {subcategory}")
+            self.layout.addWidget(subcat_label)
+        elif 'SubCategory' in raw_metadata or 'subcategory' in raw_metadata:
+            empty_label = QLabel("<b>SubCategory:</b> <span style='color: #FF6B6B;'>[Empty]</span>")
+            self.layout.addWidget(empty_label)
+        
+        # Description（原始）
+        description = raw_metadata.get('description') or raw_metadata.get('Description') or ""
+        if description:
+            desc_label = QLabel(f"<b>Description:</b><br><span style='color: #E1E4E8;'>{description}</span>")
             desc_label.setWordWrap(True)
             self.layout.addWidget(desc_label)
+        else:
+            empty_label = QLabel("<b>Description:</b> <span style='color: #FF6B6B;'>[Empty]</span>")
+            self.layout.addWidget(empty_label)
         
-        # 关键词
-        if metadata.get('keywords'):
-            keywords_text = metadata['keywords']
+        # Keywords（原始）
+        keywords = raw_metadata.get('keywords') or raw_metadata.get('Keywords') or ""
+        if keywords:
             # 如果keywords是列表，转换为字符串
-            if isinstance(keywords_text, list):
-                keywords_text = ', '.join(str(k) for k in keywords_text if k)
-            keywords_label = QLabel(f"<b>关键词:</b><br><span style='color: #C8D1D9;'>{keywords_text}</span>")
+            if isinstance(keywords, list):
+                keywords_text = ', '.join(str(k) for k in keywords if k)
+            else:
+                keywords_text = str(keywords)
+            keywords_label = QLabel(f"<b>Keywords:</b><br><span style='color: #C8D1D9;'>{keywords_text}</span>")
             keywords_label.setWordWrap(True)
             self.layout.addWidget(keywords_label)
+        else:
+            empty_label = QLabel("<b>Keywords:</b> <span style='color: #FF6B6B;'>[Empty]</span>")
+            self.layout.addWidget(empty_label)
         
         self.layout.addStretch()
     

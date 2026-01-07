@@ -56,17 +56,36 @@ class VectorEngine:
             # 如果路径是目录且存在，加载本地模型
             # 否则假设是 HuggingFace 模型名称
             if self.model_path.exists() and self.model_path.is_dir():
-                self.model = SentenceTransformer(
-                    str(self.model_path),
-                    device=device_str  # 显式传递设备
-                )
+                try:
+                    # 尝试传递 tokenizer_kwargs 修复 Mistral 正则表达式警告
+                    self.model = SentenceTransformer(
+                        str(self.model_path),
+                        device=device_str,  # 显式传递设备
+                        tokenizer_kwargs={"fix_mistral_regex": True}  # 修复警告
+                    )
+                except TypeError:
+                    # 如果不支持 tokenizer_kwargs，回退到默认加载
+                    print("[WARNING] SentenceTransformer 版本不支持 tokenizer_kwargs，忽略 fix_mistral_regex 参数")
+                    self.model = SentenceTransformer(
+                        str(self.model_path),
+                        device=device_str
+                    )
             else:
                 # 尝试作为 HuggingFace 模型名称加载
                 # 首次运行会自动下载
-                self.model = SentenceTransformer(
-                    self.model_path_str,
-                    device=device_str  # 显式传递设备
-                )
+                try:
+                    self.model = SentenceTransformer(
+                        self.model_path_str,
+                        device=device_str,  # 显式传递设备
+                        tokenizer_kwargs={"fix_mistral_regex": True}  # 修复警告
+                    )
+                except TypeError:
+                    # 如果不支持 tokenizer_kwargs，回退到默认加载
+                    print("[WARNING] SentenceTransformer 版本不支持 tokenizer_kwargs，忽略 fix_mistral_regex 参数")
+                    self.model = SentenceTransformer(
+                        self.model_path_str,
+                        device=device_str
+                    )
             
             # 验证模型实际使用的设备
             if hasattr(self.model, '_modules') and len(self.model._modules) > 0:
