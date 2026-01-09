@@ -1,0 +1,591 @@
+Keyword,CatID
+fire single,GUNMisc
+assault rifle,GUNRif
+plate armor,WEAPArmr
+weapswrd sword,WEAPSwrd
+shoot shot,GUNMisc
+shot bang,GUNMisc
+shoot shot bang,GUNMisc
+shot bang report,GUNMisc
+shot of,GUNMisc
+01 weapswrd sword,WEAPSwrd
+magical spell,MAGSpel
+single shot,GUNMisc
+sword hit,WEAPSwrd
+gun shot,GUNMisc
+single shot of,GUNMisc
+tiny sword,WEAPSwrd
+shot shooting,GUNMisc
+gun shoot,GUNMisc
+gun shoot shot,GUNMisc
+laser gun,LASRGun
+sword metal,WEAPSwrd
+gun fire,GUNMisc
+magic spell,MAGSpel
+single gun,GUNMisc
+gun single,GUNMisc
+sword draw,WEAPSwrd
+single gun shot,GUNMisc
+gun shot single,GUNMisc
+gunshot single,GUNMisc
+single pistol,GUNPis
+hit sword,WEAPSwrd
+sword swing,WEAPSwrd
+weapon sword,WEAPSwrd
+shotgun blast,GUNShotg
+rifle fire,GUNRif
+rifle shot,GUNRif
+magic aura,MAGShim
+magic shield,SCIEnrg
+rifle single,GUNRif
+rifle gun,GUNRif
+gun rifle,GUNRif
+shot rifle,GUNRif
+automatic rifle,GUNAuto
+rifle automatic,GUNAuto
+pistol shot,GUNPis
+pistol fire,GUNPis
+single pistol shot,GUNPis
+pistol single,GUNPis
+gun pistol,GUNPis
+shot pistol,GUNPis
+magic attack,MAGSpel
+magic impact,MAGSpel
+spell impact,MAGSpel
+spell cast,MAGSpel
+cast spell,MAGSpel
+spell burst,MAGSpel
+magic burst,MAGSpel
+magic projectile,MAGSpel
+magic hit,MAGSpel
+impact spell,MAGSpel
+magic spark,MAGShim
+magic shimmer,MAGShim
+magic trail,MAGSpel
+spell trail,MAGSpel
+magic beam,MAGSpel
+magic charge,MAGSpel
+spell charge,MAGSpel
+charging spell,MAGSpel
+holy spell,MAGAngl
+angelic spell,MAGAngl
+dark spell,MAGEvil
+evil spell,MAGEvil
+cursed spell,MAGEvil
+curse spell,MAGElem
+magic weapon,MAGElem
+sci fi weapon,MAGElem
+scifi weapon,MAGElem
+future weapon,SCIWeap
+weapon blast,SCIWeap
+weapon fire,SCIWeap
+weapon shot,SCIWeap
+weapon hit,SCIWeap
+weapon swing,SCIWeap
+weapon slash,WEAPSwrd
+weapon stab,WEAPKnif
+weapon strike,METLImpt
+weapon whoosh,SCIWeap
+weapon trail,SCIWeap
+weapon flyby,SCIWeap
+weapon passby,SCIWeap
+weapon pass by,SCIWeap
+weapon ricochet,SCIWeap
+weapon charge,SCIWeap
+weapon movement,SCIWeap
+sword slash,WEAPSwrd
+sword swing fast,WEAPSwrd
+sword swing slow,WEAPSwrd
+sword whoosh,WEAPSwrd
+sword whoosh fast,WEAPSwrd
+sword whoosh slow,WEAPSwrd
+sword draw fast,WEAPSwrd
+sword draw slow,WEAPSwrd
+sword sheathe,WEAPSwrd
+sword unsheathe,WEAPSwrd
+sword parry,WEAPSwrd
+sword block,WEAPSwrd
+sword deflect,WEAPSwrd
+steel sword,WEAPSwrd
+tiny sword,WEAPSwrd
+big sword,WEAPSwrd
+magic sword,WEAPSwrd
+enchanted sword,WEAPSwrd
+holy sword,MAGAngl
+dark sword,MAGEvil
+knife stab,WEAPKnif
+knife slash,WEAPKnif
+knife throw,WEAPKnif
+knife hit,WEAPKnif
+knife impact,WEAPKnif
+knife drop,WEAPKnif
+knife draw,WEAPKnif
+knife sheathe,WEAPKnif
+dagger stab,WEAPKnif
+dagger slash,WEAPKnif
+dagger throw,WEAPKnif
+dagger hit,WEAPKnif
+axe chop,WEAPAxe
+axe hit,WEAPAxe
+axe impact,WEAPAxe
+axe throw,WEAPAxe
+axe swing,WEAPAxe
+battle axe,WEAPAxe
+two handed axe,WEAPAxe
+bow draw,WEAPBow
+bow release,WEAPBow
+bow shot,WEAPBow
+bow arrow,WEAPArro
+arrow shot,WEAPArro
+arrow fly,WEAPArro
+arrow flyby,WEAPArro
+arrow passby,WEAPArro
+arrow pass by,WEAPArro
+arrow hit,WEAPArro
+arrow impact,WEAPArro
+arrow miss,WEAPArro
+arrow ricochet,WEAPArro
+crossbow bolt,WEAPArro
+crossbow shot,WEAPArro
+crossbow bolt shot,WEAPArro
+bolt impact,WEAPArro
+magic arrow,WEAPArro
+hammer hit,WEAPBlnt
+hammer impact,WEAPBlnt
+hammer slam,WEAPBlnt
+mace hit,WEAPBlnt
+mace impact,WEAPBlnt
+club hit,WEAPBlnt
+club impact,WEAPBlnt
+bat hit,WEAPBlnt
+bat impact,WEAPBlnt
+blunt hit,WEAPBlnt
+blunt impact,WEAPBlnt
+whip crack,WEAPWhip
+whip snap,WEAPWhip
+whip fast,WEAPWhip
+whip slow,WEAPWhip
+chain whip,WEAPWhip
+spear thrust,WEAPPole
+spear stab,WEAPPole
+spear throw,WEAPPole
+spear hit,WEAPPole
+spear impact,WEAPPole
+halberd swing,WEAPPole
+polearm swing,WEAPPole
+polearm hit,WEAPPole
+polearm impact,WEAPPole
+shield hit,WEAPArmr
+shield impact,WEAPArmr
+shield block,WEAPArmr
+shield bash,WEAPArmr
+metal shield,WEAPArmr
+wood shield,WEAPArmr
+armor plate,WEAPArmr
+plate armor,WEAPArmr
+chainmail armor,WEAPArmr
+armor movement,WEAPArmr
+armor rustle,WEAPArmr
+armor rattle,WEAPArmr
+heavy armor,WEAPArmr
+light armor,WEAPArmr
+magic armor,WEAPArmr
+laser beam,LASRBeam
+energy beam,LASRBeam
+plasma beam,LASRBeam
+ion beam,LASRBeam
+gauss beam,LASRBeam
+railgun beam,LASRBeam
+beam charge,LASRBeam
+beam loop,LASRBeam
+beam shot,LASRBeam
+beam blast,LASRBeam
+beam fire,LASRBeam
+laser shot,LASRGun
+laser fire,LASRGun
+laser gun,LASRGun
+laser rifle,LASRGun
+laser pistol,LASRGun
+laser cannon,LASRGun
+plasma gun,LASRGun
+plasma rifle,LASRGun
+plasma pistol,LASRGun
+plasma cannon,LASRGun
+ion gun,LASRGun
+ion rifle,LASRGun
+ray gun,LASRGun
+scifi gun,LASRGun
+future gun,LASRGun
+energy gun,LASRGun
+energy rifle,LASRGun
+energy pistol,LASRGun
+blaster shot,LASRGun
+blaster fire,LASRGun
+blaster gun,LASRGun
+phaser shot,LASRGun
+phaser fire,LASRGun
+phaser gun,LASRGun
+railgun shot,LASRGun
+railgun fire,LASRGun
+gun laser,LASRGun
+sci fi rifle,GUNRif
+sci fi pistol,GUNPis
+sci fi cannon,GUNCano
+future rifle,GUNRif
+future pistol,GUNPis
+future cannon,GUNCano
+energy shot,LASRBeam
+energy burst,LASRBeam
+energy blast,LASRBeam
+energy charge,LASRBeam
+energy buildup,LASRBeam
+energy discharge,LASRBeam
+energy wave,LASRBeam
+energy pulse,LASRBeam
+energy ring,LASRBeam
+magic energy,MAGSpel
+weapon energy,LASRBeam
+spaceship flyby,SCIShip
+spaceship passby,SCIShip
+spaceship pass by,SCIShip
+spaceship interior,SCIShip
+spaceship cockpit,SCIShip
+spaceship computer,SCICmpt
+spaceship console,SCICmpt
+spaceship ui,SCICmpt
+starship flyby,SCIShip
+starship passby,SCIShip
+force field,SCIEnrg
+forcefield hum,SCIEnrg
+forcefield impact,SCIEnrg
+forcefield hit,SCIEnrg
+forcefield burst,SCIEnrg
+teleport spell,MAGPoof
+teleport magic,MAGPoof
+teleport in,MAGPoof
+teleport out,MAGPoof
+portal open,MAGPoof
+portal close,MAGPoof
+portal whoosh,MAGPoof
+portal burst,MAGPoof
+summon spell,MAGPoof
+summoning spell,MAGPoof
+disappear spell,MAGPoof
+vanish spell,MAGPoof
+appear spell,MAGPoof
+holy aura,MAGAngl
+divine aura,MAGAngl
+angelic choir,MAGAngl
+angelic shimmer,MAGAngl
+angelic sparkle,MAGAngl
+dark aura,MAGEvil
+evil aura,MAGEvil
+cursed aura,MAGEvil
+demonic aura,MAGEvil
+evil magic,MAGEvil
+dark magic,MAGEvil
+magic sparkle,MAGShim
+magic shimmer,MAGShim
+magic glitter,MAGShim
+magic glow,MAGShim
+magic aura,MAGShim
+sparkle spell,MAGShim
+shimmer spell,MAGShim
+glow spell,MAGShim
+magic ring,MAGShim
+magic circle,MAGSpel
+magic rune,MAGSpel
+runic spell,MAGSpel
+ritual spell,MAGSpel
+arcane spell,MAGSpel
+wizard spell,MAGSpel
+wizard cast,MAGSpel
+sorcerer spell,MAGSpel
+mage spell,MAGSpel
+witch spell,MAGSpel
+warlock spell,MAGSpel
+necromancy spell,MAGEvil
+undead spell,MAGEvil
+spirit spell,MAGSpel
+ghost spell,MAGSpel
+spectral spell,MAGSpel
+phantom spell,MAGSpel
+fairy spell,MAGSpel
+faerie spell,MAGSpel
+healing spell,MAGSpel
+heal spell,MAGSpel
+support spell,MAGSpel
+buff spell,MAGSpel
+debuff spell,MAGSpel
+sheath sword,WEAPSwrd
+unsheath sword,WEAPSwrd
+sheathe sword,WEAPSwrd
+unsheathe sword,WEAPSwrd
+silenced pistol,GUNSupr
+silenced rifle,GUNSupr
+suppressed pistol,GUNSupr
+suppressed rifle,GUNSupr
+suppressed gun,GUNSupr
+pistol automatic,GUNAuto
+rifle automatic,GUNAuto
+machine gun,GUNAuto
+submachine gun,GUNAuto
+smg burst,GUNAuto
+smg fire,GUNAuto
+shotgun single,GUNShotg
+shotgun pump,GUNShotg
+pump shotgun,GUNShotg
+shotgun double,GUNShotg
+double barrel shotgun,GUNShotg
+revolver shot,GUNPis
+revolver fire,GUNPis
+handgun shot,GUNPis
+handgun fire,GUNPis
+computer beep,SCICmpt
+computer glitch,SCICmpt
+console beep,SCICmpt
+console glitch,SCICmpt
+ui beep,SCICmpt
+ui click,SCICmpt
+monster hiss,AIRHiss
+monster breath,CREAMnstr
+monster heavy breath,CREAMnstr
+monster inhale,CREAMnstr
+monster exhale,CREAMnstr
+monster rumble,CREAMnstr
+monster wing flap,CLOTHFlp
+monster flap,CLOTHFlp
+monster tail whip,WEAPWhip
+monster spit,HMNSpit
+monster vomit,HMNSpit
+creature hiss,AIRHiss
+creature breath,HMNBrth
+creature inhale,HMNBrth
+creature exhale,HMNBrth
+creature flap,CLOTHFlp
+creature wing flap,CLOTHFlp
+creature spit,HMNSpit
+dog panting,ANMLDog
+dog sniff,ANMLDog
+wolf sniff,ANMLWdog
+bear breath,ANMLWild
+bird flap,CLOTHFlp
+bird wing flap,CLOTHFlp
+owl flap,CLOTHFlp
+bat flap,CLOTHFlp
+snake hiss,ANMLRept
+rat squeak,TOONSqk
+mouse squeak,TOONSqk
+frog splash,WATRSplsh
+reptile hiss,ANMLRept
+dragon wing flap,CLOTHFlp
+dragon breath,HMNBrth
+zombie breath,HMNBrth
+ghost whisper,VOXWhsp
+ghost hiss,AIRHiss
+spirit whisper,VOXWhsp
+demon breath,HMNBrth
+wind blow,WINDGust
+wind gust,WINDGust
+wind whistle,TOONWhis
+wind ambience,WINDGust
+wind storm,NATDThyp
+wind swirl,WINDTurb
+wind rush,WINDTurb
+wind burst,WIND
+heavy wind,WIND
+strong wind,WIND
+light wind,WIND
+breeze wind,WIND
+forest wind,WIND
+mountain wind,WIND
+canyon wind,WIND
+storm wind,STORM
+sandstorm wind,STORM
+blizzard wind,STORM
+rain ambience,RAIN
+rain fall,RAIN
+rain heavy,RAIN
+rain light,RAIN
+rain sprinkle,RAIN
+rain drizzle,RAIN
+rain shower,RAIN
+rain impact,RAIN
+rain window,RAIN
+rain roof,RAIN
+rain gutter,RAIN
+storm thunder,THUN
+storm lightning,THUN
+storm wind,STORM
+storm ambience,STORM
+thunder crack,THUN
+thunder rumble,THUN
+thunder roll,THUN
+lightning strike,THUN
+lightning hit,THUN
+ocean wave,WATRWave
+ocean splash,WATRSplsh
+ocean surf,WATRWave
+ocean roar,WATRWave
+sea wave,WATRWave
+sea splash,WATRSplsh
+sea surf,WATRWave
+water splash,WATRSplsh
+water heavy splash,WATRSplsh
+water small splash,WATRSplsh
+water drip,WATRDrip
+water drop,WATRDrip
+river splash,WATRSplsh
+lake wave,WATRWave
+lake splash,WATRSplsh
+waterfall roar,WATRFall
+waterfall ambience,WATRFall
+waterfall crash,WATRFall
+forest ambience,AMBForst
+forest wind,WIND
+jungle wind,WIND
+mountain wind,WIND
+desert wind,WIND
+desert ambience,AMBDsrt
+desert storm,STORM
+cave drip,WATRDrip
+cave rumble,DSGNRmbl
+cave wind,WIND
+underground rumble,DSGNRmbl
+underground drip,WATRDrip
+swamp ambience,AMBSwmp
+swamp splash,WATRSplsh
+snowstorm ambience,STORM
+avalanche rumble,DSGNRmbl
+earth rumble,DSGNRmbl
+earthquake rumble,DSGNRmbl
+volcano rumble,DSGNRmbl
+door lock,MECHLock
+door unlock,MECHLock
+cloth flap,CLOTHFlp
+fabric stretch,TOONStrch
+footstep water,WATRSplsh
+shoe squeak,TOONSqk
+bag unzip,TOONZip
+bag zip,TOONZip
+food squish,GORESqsh
+fruit squish,GORESqsh
+kettle whistle,TOONWhis
+rope tension,TOONStrch
+microwave beep,BEEP
+sink drip,WATRDrip
+sink splash,WATRSplsh
+shower splash,WATRSplsh
+shampoo squish,GORESqsh
+clock tick,CLOCKTick
+fan belt squeak,TOONSqk
+mechanism lock,MECHLock
+mechanism unlock,MECHLock
+low boom,DSGNRmbl
+deep boom,DSGNRmbl
+soft boom,DSGNRmbl
+magic sweetener,MAGSpel
+rubble rumble,DSGNRmbl
+rope tension,TOONStrch
+rope stress,TOONStrch
+rope strain,TOONStrch
+pipe hiss,AIRHiss
+steam hiss,AIRHiss
+valve hiss,AIRHiss
+electric pop,TOONPop
+electric crackle,FIRECrkl
+electric arc,ELECArc
+circuit pop,TOONPop
+panel lock,MECHLock
+switch pop,TOONPop
+heat shimmer,MAGShim
+air shimmer,MAGShim
+magic shimmer,MAGShim
+energy shimmer,MAGShim
+light shimmer,MAGShim
+glow pulse,MAGShim
+orb glow,MAGShim
+impact distortion,DSGNDist
+distortion burst,DSGNDist
+distortion hit,DSGNDist
+rumble wave,DSGNRmbl
+rumble pulse,DSGNRmbl
+rumble flutter,DSGNRmbl
+micro rumble,DSGNRmbl
+macro rumble,DSGNRmbl
+tonal rumble,DSGNRmbl
+harmonic rise,MAGShim
+harmonic pulse,MAGShim
+drone swell,DSGNDron
+drone pulse,DSGNDron
+drone flutter,DSGNDron
+drone drift,DSGNDron
+drone shimmer,MAGShim
+cinematic boom,DSGNBoom
+cinematic rumble,DSGNRmbl
+sweetener shimmer,MAGShim
+surreal shimmer,MAGShim
+water ball,WATRSplsh
+balloon deflate long,FARTDsgn
+balloon deflate short,FARTDsgn
+balloon deflate wet,FARTDsgn
+balloon deflate,FARTDsgn
+bloaty,FARTDsgn
+mouth short,FARTDsgn
+slime blow,FARTDsgn
+party blower big long,HORNCele
+party blower big short,HORNCele
+party blower small long,HORNCele
+party blower small short,HORNCele
+party blower small,HORNCele
+horn bicycle big double,HORNMisc
+horn bicycle big short,HORNMisc
+horn bicycle big,HORNMisc
+horn bicycle small double,HORNMisc
+horn bicycle small short,HORNMisc
+horn bicycle small,HORNMisc
+kazoo short cow,MUSCMisc
+kazoo short simple,MUSCMisc
+kazoo short,MUSCMisc
+whistle slide flute long,MUSCMisc
+whistle slide flute short,MUSCMisc
+whistle slide flute,MUSCMisc
+train whistle long,WHSTMech
+train whistle short,WHSTMech
+siren whistle long,WHSTMisc
+siren whistle short,WHSTMisc
+whistle pea long,WHSTMisc
+whistle pea short,WHSTMisc
+whistle pea trill,WHSTMisc
+whistle pea,WHSTMisc
+whistle referee long,WHSTMisc
+whistle referee short,WHSTMisc
+whistle referee trill,WHSTMisc
+whistle referee,WHSTMisc
+whistle samba long,WHSTMisc
+whistle samba short,WHSTMisc
+whistle samba trill,WHSTMisc
+whistle samba,WHSTMisc
+whistle trill long,WHSTMisc
+whistle trill short,WHSTMisc
+whistle trill,WHSTMisc
+finger whistle long,WHSTHmn
+finger whistle short,WHSTHmn
+finger whistle,WHSTHmn
+mouth whistle call,WHSTHmn
+mouth whistle long,WHSTHmn
+mouth whistle short,WHSTHmn
+mouth whistle,WHSTHmn
+wolf whistle long,WHSTMisc
+wolf whistle short,WHSTMisc
+wolf whistle,WHSTMisc
+woodwind whistle long,WHSTMisc
+woodwind whistle short,WHSTMisc
+woodwind whistle,WHSTMisc
+whistle baby long,WHSTMisc
+whistle baby short,WHSTMisc
+whistle baby,WHSTMisc
+whistle cuckoo long,WHSTMisc
+whistle cuckoo short,WHSTMisc
+whistle cuckoo,WHSTMisc
+whistle duck,WHSTMisc

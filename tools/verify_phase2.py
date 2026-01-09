@@ -12,8 +12,9 @@ from data import SoundminerImporter
 from core import VectorEngine, DataProcessor, SearchCore, UCSManager
 
 
-# 测试配置
-TEST_DB_PATH = "./test_assets/Sonic.sqlite"
+# 测试配置（从配置文件读取）
+from data.database_config import get_database_path
+TEST_DB_PATH = get_database_path()
 MODEL_PATH = "./models/bge-m3"
 CACHE_DIR = "./cache"
 

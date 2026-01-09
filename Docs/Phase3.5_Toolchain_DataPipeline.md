@@ -1,7 +1,7 @@
 # Phase 3.5: 工具链与数据管道重构
 
-**更新时间**: 2025-01-05  
-**状态**: ✅ 已完成
+**更新时间**: 2025-01-09  
+**状态**: ✅ 已完成（包含短路逻辑修复和数据库配置系统）
 
 ## 概述
 
@@ -106,24 +106,51 @@ python tools/generate_rules_json.py
 
 **验证逻辑**：
 - 读取 `data_config/ucs_catid_list.csv` 获取有效 CatID 集合
-- 如果 CSV 中的 CatID 不存在，报错或跳过（带警告）
+- **关键修复**：同时添加原始值和大写值到有效集合（支持大小写不敏感匹配）
+  - 例如：`GUNMisc` → 添加 `GUNMisc` 和 `GUNMISC`
+  - 解决大小写混合 CatID 验证失败的问题
+- 如果 CSV 中的 CatID 不存在，跳过并警告（不会中断流程）
 
 **排序策略**：
 - 规则按关键词长度降序排序
 - 确保长关键词（如 "metal door"）优先于短关键词（如 "door"）匹配
 - 避免短关键词误匹配长短语
 
-#### 2.2 标准化 `data_config/ucs_alias.csv`
+**输出文件**：
+- `data_config/rules.json`
+  - 格式：`{"keyword": "catid", ...}`
+  - 关键词已归一化（小写，保留空格）
+  - CatID 已验证（都是有效的 UCS 标准 CatID）
+  - 规则按关键词长度降序排序
 
-**当前状态**：
-- 文件存在但格式不标准（无表头，格式混乱）
+**作用**：
+- 为 `core/data_processor.py` 的 Level 0（强规则）提供关键词到 CatID 的映射
+- 运行时，`data_processor.py` 会读取此文件进行整词匹配
+
+**使用时机**：
+- 更新 `ucs_alias.csv` 后，**必须**运行此脚本重新生成 `rules.json`
+- 首次设置系统时
+- 添加新的关键词映射后
+
+#### 2.2 标准化 `data_config/ucs_alias.csv`
 
 **标准化工具**：`tools/standardize_alias_csv.py`
 
-**功能**：
-- 添加表头：`Keyword, CatID`
-- 规范化 CatID 格式（转大写，验证有效性）
-- 备份原文件
+**作用**：标准化 `ucs_alias.csv` 文件格式，确保数据质量
+
+**输入**：
+- `data_config/ucs_alias.csv`（可能有格式问题）
+
+**处理流程**：
+1. 自动检测 CSV 是否有表头（`Keyword, CatID`）
+2. 如果没有表头，自动添加
+3. 加载 UCSManager，验证所有 CatID 是否有效
+4. 规范化 CatID 格式（转大写，保留原始格式）
+5. 备份原文件
+
+**输出**：
+- 标准化的 `data_config/ucs_alias.csv`（带表头，格式正确）
+- 备份文件：`data_config/ucs_alias.csv.backup`
 
 **使用方法**：
 ```bash
@@ -131,9 +158,17 @@ python tools/generate_rules_json.py
 python tools/standardize_alias_csv.py
 ```
 
-**注意**：
-- 会创建备份文件 `ucs_alias.csv.backup`
-- 无效的 CatID 会被标记但保留
+**规范**：
+- CSV 必须有两列：`Keyword, CatID`
+- CatID 必须是有效的 UCS 标准 CatID（在 `ucs_catid_list.csv` 中）
+- 关键词中的空格会被保留（用于整词匹配）
+
+**使用时机**：
+- 首次创建 `ucs_alias.csv` 时
+- 手动编辑 CSV 后，需要验证格式时
+- 从外部数据源导入数据后
+
+**下一个工具**：`tools/generate_rules_json.py`
 
 ### 🔴 第三阶段：数据注入与迭代闭环
 
@@ -302,6 +337,25 @@ python rebuild_atlas.py
 6. **性能考虑**：`verify_subset.py` 限制默认 500 条，可根据需要调整
 
 7. **输出文件**：验证工具默认输出为 `verification_result.png`，可通过 `--output` 参数自定义
+
+## 最新更新（2025-01-09）
+
+### ✅ 短路逻辑修复
+- **问题**: 文件名中包含标准 CatID（如 `ANMLAqua_...`）时，短路逻辑未正确生效，导致分类漏到 Level 2
+- **修复**: `resolve_category_from_filename` 现在返回原始格式的 CatID（如 `ANMLAqua`），而不是大写格式
+- **结果**: 所有包含标准 CatID 的文件名都能被正确识别为 Level -1（文件名短路）
+
+### ✅ 数据库配置系统
+- **新增**: 统一的数据库路径配置系统（`data/database_config.py`）
+- **配置文件**: `data_config/user_config.json` 中添加 `database_path` 字段
+- **优势**: 所有脚本和软件都从配置文件读取数据库路径，方便切换数据源
+- **文档**: 创建了 `Docs/DATABASE_CONFIG.md` 详细说明配置方法
+
+### ✅ 测试脚本改进
+- **输出管理**: 所有测试输出文件统一保存到 `verify_output/` 文件夹
+- **文件命名**: 自动添加时间戳（格式：`MMDDHHmm`），便于管理
+- **CSV 导出**: 导出详细数据表，包含文件名、CatID、主类别、分类来源、UMAP 坐标等
+- **坐标说明**: 添加了 UMAP 坐标含义说明和聚类效果验证方法
 
 ## 下一步
 

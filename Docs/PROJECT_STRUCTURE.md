@@ -21,7 +21,8 @@ SonicCompass/
 ├── data/                      # 数据导入和配置模块
 │   ├── __init__.py
 │   ├── importer.py            # Soundminer 数据库导入器
-│   └── config_loader.py       # 配置加载器
+│   ├── config_loader.py       # 配置加载器
+│   └── database_config.py     # 数据库配置模块（统一数据库路径管理）
 │
 ├── tools/                     # 工具脚本
 │   ├── __init__.py
@@ -30,7 +31,8 @@ SonicCompass/
 │   ├── generate_platinum_centroids.py # 生成白金质心
 │   ├── verify_phase2.py       # Phase 2 验证脚本
 │   ├── verify_pipeline.py     # 流水线验证脚本
-│   ├── verify_subset.py       # 微缩验证工具（Phase 3.5）
+│   ├── verify_subset.py       # 微缩验证工具（Phase 3.5，支持 CSV 导出和时间戳）
+│   ├── standardize_alias_csv.py  # CSV 标准化工具（Phase 3.5）
 │   └── standardize_alias_csv.py  # CSV 标准化工具（Phase 3.5）
 │
 ├── ui/                        # UI 模块
@@ -60,7 +62,12 @@ SonicCompass/
 │   ├── coordinates.npy        # UMAP 坐标缓存
 │   ├── embeddings.npy         # 向量嵌入缓存
 │   ├── metadata.pkl           # 元数据缓存
-│   └── index_info.pkl         # 索引信息
+│   ├── index_info.pkl         # 索引信息
+│   └── platinum_centroids_754.pkl  # Platinum 质心（用于 AI 预测）
+│
+├── verify_output/             # 测试输出目录（Phase 3.5）
+│   ├── verify_*.png          # 验证结果图片（带时间戳）
+│   └── verify_*_details_*.csv  # 详细数据表（带时间戳）
 │
 ├── models/                    # AI 模型目录
 │   └── bge-m3/                # BGE-M3 模型文件
@@ -74,7 +81,14 @@ SonicCompass/
     ├── Phase2_Technical_Summary.md
     ├── Phase3_Progress_Status.md
     ├── Phase3.5_Toolchain_DataPipeline.md  # Phase 3.5 工具链文档
-    ├── Refactoring_Summary.md
+    ├── 分类流程细节.md                      # 分类流程详细说明
+    ├── 数据处理1.md                        # 数据处理工作流说明
+    ├── DATABASE_CONFIG.md                  # 数据库配置说明
+    ├── CatID_Format_Standardization.md      # CatID 格式标准化说明
+    ├── Misc_Delay_Confirmation_Design.md    # Misc 延迟确认设计
+    ├── MAINTENANCE_GUIDE.md                 # 维护指南
+    ├── PROJECT_STRUCTURE.md                 # 项目结构说明
+    └── 归档/                                # 归档文档
     └── The Architecture
 ```
 
@@ -113,6 +127,25 @@ python main.py
 - `visualizer.py`: 重定向到 `ui.visualizer`
 
 ## 最新更新
+
+### 2025-01-09 - Phase 3.5: 短路逻辑修复与数据库配置系统
+
+**短路逻辑修复**:
+- ✅ 修复 `resolve_category_from_filename` 返回格式问题
+- ✅ 现在返回原始格式的 CatID（如 `ANMLAqua`），保持官方 UCS 格式
+- ✅ 所有包含标准 CatID 的文件名都能被正确识别为 Level -1（文件名短路）
+
+**数据库配置系统**:
+- ✅ 新增 `data/database_config.py` - 统一的数据库路径配置模块
+- ✅ 更新 `data_config/user_config.json` - 添加 `database_path` 字段
+- ✅ 所有脚本和软件都从配置文件读取数据库路径
+- ✅ 创建 `Docs/DATABASE_CONFIG.md` - 数据库配置说明文档
+
+**测试脚本改进**:
+- ✅ 所有测试输出文件统一保存到 `verify_output/` 文件夹
+- ✅ 文件命名自动添加时间戳（格式：`MMDDHHmm`）
+- ✅ CSV 导出包含详细数据（文件名、CatID、主类别、分类来源、UMAP 坐标）
+- ✅ 添加 UMAP 坐标含义说明和聚类效果验证方法
 
 ### 2025-01-05 - Phase 3.5: 工具链与数据管道重构
 

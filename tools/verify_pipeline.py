@@ -17,8 +17,9 @@ AudioMetadata = SoundminerImporter.AudioMetadata if hasattr(SoundminerImporter, 
 ConfigManager = ConfigLoader  # 别名
 
 
-# 路径配置 (指向你的测试素材)
-TEST_DB_PATH = "./test_assets/Sonic.sqlite"
+# 路径配置 (从配置文件读取)
+from data.database_config import get_database_path
+TEST_DB_PATH = get_database_path()
 MODEL_PATH = "./models/bge-m3"
 
 

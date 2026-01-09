@@ -345,19 +345,46 @@ class DataProcessor(QObject):
     
     def _extract_category(self, meta_dict: Dict) -> Optional[Tuple[str, str]]:
         """
-        最终版：只负责找到最准确的 CatID (如 WPNGun)
-        不再做任何截断或信息丢失。
+        分类提取：4级瀑布流逻辑（从最高确定性到最低确定性）
+        
+        一旦在某一级找到有效分类，立即返回，不会继续执行后续逻辑。
+        
+        分类流程：
+        1. Level -1 (短路逻辑): 从文件名直接提取 UCS CatID（准确率 100%，性能 O(1)）
+        2. Level 0 (强规则): 在 rich_text 中查找 ucs_alias.csv 关键词（整词匹配）
+        3. Level 1 (显式 Metadata): 验证原始 metadata 中的 category 字段（不涉及 AI）
+        4. Level 2 (AI 预测): 使用 rich_text 进行向量匹配（唯一使用 AI 的步骤）
+        
+        详细说明请参考: Docs/Classification_Flow_Details.md
         """
-        raw_cat = meta_dict.get('category', '').strip()
+        # 【修复】处理 category 可能为 None 的情况
+        raw_cat_raw = meta_dict.get('category') or ''
+        raw_cat = str(raw_cat_raw).strip() if raw_cat_raw else ''
+        
         rich_text = meta_dict.get('rich_context_text', '') or meta_dict.get('semantic_text', '')
         text_upper = rich_text.upper() if rich_text else ""
         
-        # --- Level 0: 强规则 (返回 CatID，必须与 CSV 中的 CatID 一致) ---
-        # 强规则映射到具体的 CatID，这样 LOD1 能显示具体子类
-        # 从 rules.json 加载（不再硬编码）
+        # 【修复】处理 filename 可能为 None 的情况
+        filename_raw = meta_dict.get('filename') or ''
+        filename = str(filename_raw).strip() if filename_raw else ''
         
-        # 检查强规则，使用整词匹配（Whole Word Matching）
-        # 使用正则表达式确保只匹配完整单词，避免 "train" 匹配 "training"
+        # --- Level -1: 短路逻辑 (Short-Circuit Logic) - 最高优先级 ---
+        # 如果文件名本身就包含了标准的 UCS CatID（例如 AEROHeli_...），
+        # 那么去查别名表或跑 AI 都是浪费资源，甚至可能引入错误。
+        # 准确率 100%，性能 O(1)
+        if filename and self.ucs_manager:
+            direct_catid = self.ucs_manager.resolve_category_from_filename(filename)
+            if direct_catid:
+                # 对直接匹配的 CatID 也进行严格验证（双重保险）
+                validated = self.ucs_manager.enforce_strict_category(direct_catid)
+                if validated != "UNCATEGORIZED":
+                    return validated, "Level -1 (文件名短路)"  # 找到了就直接返回，跳过后续所有逻辑
+        
+        # --- Level 0: 强规则 (Strong Rules) ---
+        # 在 rich_text 中查找 ucs_alias.csv 中定义的关键词
+        # rich_text 包含: Filename, Description, Keywords, VendorCategory, Library, BWDescription, Notes, FXName
+        # 使用整词匹配（Whole Word Matching）：\b{keyword}\b 确保只匹配完整单词
+        # 例如: "train" 不会匹配 "training"（完全匹配，不是部分匹配）
         import re
         for keyword, target_id in self.strong_rules.items():
             # 转小写进行匹配（因为 normalize_text 返回小写）
@@ -371,11 +398,13 @@ class DataProcessor(QObject):
                 # 对强规则结果也进行严格验证
                 if self.ucs_manager:
                     validated = self.ucs_manager.enforce_strict_category(target_id)
-                    return validated, ""  # 找到了就返回 CatID
-                return target_id, ""
+                    return validated, "Level 0 (规则)"  # 找到了就返回 CatID
+                return target_id, "Level 0 (规则)"
 
-        # --- Level 1: 显式 Metadata ---
-        # 如果原始数据里有 AIRBlow，先用严格UCS验证
+        # --- Level 1: 显式 Metadata (Explicit Metadata) ---
+        # 读取原始 metadata 中的 category 字段（raw_cat）
+        # 不涉及 AI，只是验证和规范化（查表验证 + 别名解析）
+        # 如果原始数据中已经有有效的 CatID（如 "AIRBlow"），直接使用
         if raw_cat and "MISC" not in raw_cat.upper() and raw_cat.upper() != "UNCATEGORIZED":
             if self.ucs_manager:
                 # 严格执行UCS验证（数据安检门）
@@ -384,37 +413,47 @@ class DataProcessor(QObject):
                     # 验证一下这是否是合法的 CatID
                     info = self.ucs_manager.get_catid_info(validated_cat)
                     if info:
-                        return validated_cat, ""  # 返回验证后的 CatID
+                        return validated_cat, "Level 1 (显式Metadata)"  # 返回验证后的 CatID（不再执行后续逻辑）
 
-        # --- Level 2: AI 向量匹配 ---
+        # --- Level 2: AI 向量匹配 (AI Vector Matching) ---
+        # 唯一使用 AI 的步骤：使用 rich_text 进行向量化，与 Platinum Centroids 比较
+        # 只有在所有前面的步骤都失败时，才会执行此步骤
         if not self.category_centroids:
-            return "UNCATEGORIZED", ""
-
+            return "UNCATEGORIZED", "未分类 (无质心)"
+        
         if not rich_text:
-            return "UNCATEGORIZED", ""
+            return "UNCATEGORIZED", "未分类 (无文本)"
 
         try:
+            # 向量化 rich_text（包含所有相关字段的拼接）
             vector = self.vector_engine.encode(rich_text)
             best_cat_id = None
             best_score = -1.0
             
+            # 与 754 个 UCS CatID 的向量质心比较（余弦相似度）
             for cid, centroid in self.category_centroids.items():
                 score = np.dot(vector, centroid)
                 if score > best_score:
                     best_score = score
                     best_cat_id = cid
             
+            # 相似度阈值: > 0.4（如果最高相似度 < 0.4，返回 "UNCATEGORIZED"）
             if best_cat_id and best_score > 0.4:
                 # 对AI预测结果也进行严格验证
                 if self.ucs_manager:
                     validated = self.ucs_manager.enforce_strict_category(best_cat_id)
-                    return validated, ""  # 直接返回验证后的 CatID
-                return best_cat_id, ""
+                    return validated, f"Level 2 (AI预测, 相似度:{best_score:.3f})"  # 返回验证后的 CatID
+                return best_cat_id, f"Level 2 (AI预测, 相似度:{best_score:.3f})"
+            else:
+                # 相似度太低，不信任 AI 预测
+                return "UNCATEGORIZED", f"未分类 (AI相似度过低:{best_score:.3f})"
                 
         except Exception as e:
             print(f"AI Arbitration Error: {e}")
+            return "UNCATEGORIZED", f"未分类 (AI错误:{str(e)})"
 
-        return "UNCATEGORIZED", ""
+        # 所有步骤都失败，返回 "UNCATEGORIZED"
+        return "UNCATEGORIZED", "未分类"
     
     def load_index(self) -> Tuple[List[Dict], np.ndarray]:
         """

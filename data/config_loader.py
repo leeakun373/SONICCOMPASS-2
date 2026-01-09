@@ -63,6 +63,7 @@ class ConfigManager:
         self.presets: List[Preset] = []
         self.pillars: List[PillarConcept] = []
         self.library_root: Optional[str] = None  # 库根路径
+        self.database_path: Optional[str] = None  # 数据库路径
         
     def load_all(self) -> None:
         """加载所有配置文件"""
@@ -87,6 +88,7 @@ class ConfigManager:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             self.library_root = data.get('library_root')
+            self.database_path = data.get('database_path')
         except json.JSONDecodeError as e:
             raise ConfigError(f"用户配置JSON格式错误: {e}") from e
         except Exception as e:
@@ -98,12 +100,27 @@ class ConfigManager:
         
         try:
             data = {
-                'library_root': self.library_root
+                'library_root': self.library_root,
+                'database_path': self.database_path
             }
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             raise ConfigError(f"保存用户配置失败: {e}") from e
+    
+    def get_database_path(self, default: str = "./test_assets/Sonic.sqlite") -> str:
+        """
+        获取数据库路径（带默认值）
+        
+        Args:
+            default: 如果配置文件中没有设置，使用的默认路径
+            
+        Returns:
+            数据库路径字符串
+        """
+        if self.database_path:
+            return self.database_path
+        return default
     
     def load_axis_definitions(self) -> None:
         """加载轴定义文件"""

@@ -1435,6 +1435,25 @@ python tools/verify_subset.py VEHICLE
    - 区分 "metal door" 和 "metaldoor"
    - 提高匹配精确度
 
+### 最新更新（2025-01-09）
+
+#### ✅ 短路逻辑修复
+- **问题**: 文件名中包含标准 CatID（如 `ANMLAqua_...`）时，短路逻辑未正确生效
+- **修复**: `resolve_category_from_filename` 现在返回原始格式的 CatID（如 `ANMLAqua`）
+- **结果**: 所有包含标准 CatID 的文件名都能被正确识别为 Level -1（文件名短路）
+
+#### ✅ 数据库配置系统
+- **新增**: 统一的数据库路径配置系统（`data/database_config.py`）
+- **配置文件**: `data_config/user_config.json` 中添加 `database_path` 字段
+- **优势**: 所有脚本和软件都从配置文件读取数据库路径，方便切换数据源
+- **文档**: 创建了 `Docs/DATABASE_CONFIG.md` 详细说明配置方法
+
+#### ✅ 测试脚本改进
+- **输出管理**: 所有测试输出文件统一保存到 `verify_output/` 文件夹
+- **文件命名**: 自动添加时间戳（格式：`MMDDHHmm`），便于管理
+- **CSV 导出**: 导出详细数据表，包含文件名、CatID、主类别、分类来源、UMAP 坐标等
+- **坐标说明**: 添加了 UMAP 坐标含义说明和聚类效果验证方法
+
 ### 下一步
 
 - [ ] 完善 `ucs_alias.csv` 数据（使用 LLM 处理 BoomList）

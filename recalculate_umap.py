@@ -42,8 +42,9 @@ def recalculate_umap():
     print("🔄 Sonic Compass: 重新计算UMAP坐标 (Recalculate UMAP Only)")
     print("=" * 60)
     
-    # 1. 配置路径
-    DB_PATH = "./test_assets/Sonic.sqlite"
+    # 1. 配置路径（从配置文件读取）
+    from data.database_config import get_database_path
+    DB_PATH = get_database_path()
     CACHE_DIR = "./cache"
     
     if not Path(DB_PATH).exists():

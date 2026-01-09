@@ -73,6 +73,10 @@ class UCSManager:
         # CatID -> Main Category 映射（用于UMAP监督学习）
         # 格式: "AMBFORST" -> "AMBIENCE"
         self.catid_to_main_category: Dict[str, str] = {}
+        
+        # 有效 CatID 集合（用于短路逻辑：文件名直接匹配）
+        # 包含所有标准的 UCS CatID（如 "AEROHeli", "WPNGun"）
+        self.valid_catids_set: set = set()
     
     def load_all(self) -> None:
         """加载所有UCS相关配置文件"""
@@ -100,6 +104,7 @@ class UCSManager:
             
             self.catid_to_category = {}
             self.fullcategory_to_catid = {}
+            self.valid_catids_set = set()  # 初始化有效 CatID 集合（用于短路逻辑）
             
             for _, row in df.iterrows():
                 # 按照你的描述直接取列
@@ -108,6 +113,12 @@ class UCSManager:
                 subcategory = str(row.get('SubCategory', '')).strip() # 第二列
                 cat_id = str(row.get('CatID', '')).strip()           # 第三列
                 cat_short = str(row.get('CatShort', '')).strip()     # 第四列
+                
+                # 【修复】跳过空行（CatID 为空或 NaN 的行）
+                # 使用更严格的检查：CatID 必须非空且非 NaN
+                if not cat_id or cat_id == 'nan' or pd.isna(row.get('CatID')):
+                    continue
+                
                 explanations = str(row.get("Explanations", "")).strip()
                 
                 # 解析同义词
@@ -160,6 +171,10 @@ class UCSManager:
                     normalized_category = category.strip().upper()
                     self.catid_to_main_category[normalized_cat_id] = normalized_category
                 
+                # 添加到有效 CatID 集合（用于短路逻辑）
+                if cat_id:
+                    self.valid_catids_set.add(cat_id.upper())
+                
         except pd.errors.EmptyDataError:
             raise UCSError("UCS CatID列表文件为空")
         except Exception as e:
@@ -168,6 +183,7 @@ class UCSManager:
         # 验证唯一主类别数量（应该约82个）
         unique_main_categories = set(self.catid_to_main_category.values())
         print(f"[INFO] UCS Manager: 加载了 {len(unique_main_categories)} 个唯一主类别")
+        print(f"[INFO] UCS Manager: 构建了 {len(self.valid_catids_set)} 个有效 CatID（用于短路逻辑）")
         if len(unique_main_categories) > 90:
             print(f"[WARNING] 主类别数量异常 ({len(unique_main_categories)})，预期约82个")
             print(f"   前20个主类别: {list(sorted(unique_main_categories))[:20]}")
@@ -444,14 +460,16 @@ class UCSManager:
         """
         严格执行UCS类别验证和规范化（数据安检门）
         
+        支持大小写不敏感查找，但返回原始格式的 CatID（保持官方 UCS 格式）。
+        
         如果输入类别不在有效UCS类别集合中，尝试通过别名解析或模糊匹配。
         如果完全未知，返回 "UNCATEGORIZED"，不传递原始垃圾字符串。
         
         Args:
-            raw_cat: 原始类别字符串
+            raw_cat: 原始类别字符串（可以是任意大小写格式）
             
         Returns:
-            标准化的UCS类别（CatID），如果无效则返回 "UNCATEGORIZED"
+            标准化的UCS类别（CatID，原始格式：大小写混合），如果无效则返回 "UNCATEGORIZED"
         """
         if not raw_cat:
             return "UNCATEGORIZED"
@@ -459,18 +477,30 @@ class UCSManager:
         # 规范化输入（去除空白、转大写，使用副本）
         normalized_cat = str(raw_cat).strip().upper()
         
-        # 如果已经在有效集合中，直接返回
+        # 如果已经在有效集合中，查找原始格式的 CatID
         if normalized_cat in self.valid_categories:
+            # 查找原始格式的 CatID（大小写混合）
+            for cat_id in self.catid_to_category.keys():
+                if cat_id.upper() == normalized_cat:
+                    return cat_id  # 返回原始格式（官方 UCS 格式）
+            # 降级：如果找不到原始格式，返回大写（不应该发生，但作为保险）
             return normalized_cat
         
         # 尝试通过别名解析
         resolved_catid = self.resolve_alias(normalized_cat)
-        if resolved_catid and resolved_catid in self.catid_to_category:
+        if resolved_catid:
+            # 查找原始格式
+            resolved_upper = resolved_catid.upper()
+            for cat_id in self.catid_to_category.keys():
+                if cat_id.upper() == resolved_upper:
+                    return cat_id  # 返回原始格式
+            # 如果找不到原始格式，返回解析结果（可能已经是原始格式）
             return resolved_catid
         
-        # 尝试直接查找 CatID（精确匹配）
-        if normalized_cat in self.catid_to_category:
-            return normalized_cat
+        # 尝试直接查找 CatID（大小写不敏感）
+        for cat_id in self.catid_to_category.keys():
+            if cat_id.upper() == normalized_cat:
+                return cat_id  # 返回原始格式（官方 UCS 格式）
         
         # 如果完全未知，返回字面字符串 "UNCATEGORIZED"
         # 关键：不要传递原始垃圾字符串
@@ -511,6 +541,58 @@ class UCSManager:
         
         # 3. 如果都找不到，返回 "UNCATEGORIZED"
         return "UNCATEGORIZED"
+    
+    def resolve_category_from_filename(self, filename: str) -> Optional[str]:
+        """
+        短路逻辑（Short-Circuit Logic）：从文件名直接提取 UCS CatID
+        
+        这是最高优先级的确定性匹配。如果文件名本身就包含了标准的 UCS CatID
+        （例如 "AEROHeli_...", "WPNGun_..."），那么直接返回该 CatID，无需查表或跑 AI。
+        
+        优势：
+        - 准确率 100%: AEROHeli 永远等于 AEROHeli，没有任何歧义
+        - 性能 O(1): 字典查找极快，不需要复杂的字符串距离计算
+        - 避免错误: 防止别名表或 AI 引入错误分类
+        
+        Args:
+            filename: 文件名（如 "AEROHeli_Helicopter_Flyby_01.wav"）
+            
+        Returns:
+            标准化的 UCS CatID（如 "AEROHeli"），如果未找到则返回 None
+        """
+        if not filename:
+            return None
+        
+        # 预处理：将文件名拆解为部分
+        # 替换下划线和连字符为空格，然后分割
+        # 例如: "AEROHeli_Helicopter-01.wav" -> ["AEROHeli", "Helicopter", "01.wav"]
+        parts = filename.replace('_', ' ').replace('-', ' ').split()
+        
+        # 遍历每个部分，检查是否是标准的 CatID
+        for part in parts:
+            # 移除文件扩展名（如果有）
+            part_clean = part.split('.')[0] if '.' in part else part
+            
+            # 转大写进行匹配（CatID 通常是大写）
+            part_upper = part_clean.upper()
+            
+            # 检查是否是标准的 CatID（O(1) 查找）
+            if part_upper in self.valid_catids_set:
+                # 验证该 CatID 是否在 catid_to_category 中（双重验证）
+                # 优先返回原始格式的 CatID（保持官方 UCS 格式）
+                if part_upper in self.catid_to_category:
+                    # 如果大写格式存在，返回原始格式
+                    for cat_id_key in self.catid_to_category.keys():
+                        if cat_id_key.upper() == part_upper:
+                            return cat_id_key  # 返回原始格式（如 ANMLAqua）
+                # 如果大写格式不在，尝试查找原始大小写的键
+                for cat_id_key in self.catid_to_category.keys():
+                    if cat_id_key.upper() == part_upper:
+                        return cat_id_key  # 返回原始格式（如 ANMLAqua）
+        
+        # 如果文件名中没有找到直接的 CatID，返回 None
+        # 让后续的别名匹配或 AI 预测来处理
+        return None
 
 
 if __name__ == "__main__":

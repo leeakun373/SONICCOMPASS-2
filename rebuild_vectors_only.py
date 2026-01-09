@@ -35,12 +35,14 @@ def rebuild_vectors_only():
         print("已取消")
         return
     
-    # 1. 配置路径
-    DB_PATH = "./test_assets/Sonic.sqlite"
+    # 1. 配置路径（从配置文件读取）
+    from data.database_config import get_database_path
+    DB_PATH = get_database_path()
     CACHE_DIR = "./cache"
     
     if not Path(DB_PATH).exists():
         print(f"❌ 数据库文件不存在: {DB_PATH}")
+        print("   请检查 data_config/user_config.json 中的 database_path 配置")
         sys.exit(1)
     
     # 2. 初始化核心组件

@@ -1,0 +1,872 @@
+Keyword,CatID,CatID_fixed,map_status,note
+rifle reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+magic explosion,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic fireball,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+fireball impact,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic bolt,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+fire spell,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+ice spell,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+lightning spell,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+elemental spell,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+weapon impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+gun impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+bullet impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+rifle impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+pistol impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+shotgun impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+laser impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+plasma impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+energy impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+weapon reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+weapon handling,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+weapon handle,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+fire sword,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+ice sword,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+fire arrow,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+ice arrow,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+explosive arrow,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+beam hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+spaceship engine,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+spaceship door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+spaceship hatch,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+spaceship alarm,ALARM,,AMBIGUOUS,SubCategory 'ALARM' maps to 2 CatIDs
+engine reactor,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+reactor core,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+reactor hum,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+reactor meltdown,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+reactor startup,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+reactor shutdown,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+starship engine,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+drone engine,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+drone flyby,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+drone passby,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+robot step,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+robot movement,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+robot arm,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+robot servo,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+robot joint,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+mech step,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+mech movement,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+mech servo,MECHANISM,,AMBIGUOUS,SubCategory 'MECHANISM' maps to 7 CatIDs
+mech cockpit,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+fire magic,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+ice magic,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+lightning magic,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+storm magic,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+elemental magic,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic storm,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic lightning,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic fire,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic ice,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic wind,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic earth,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic stone,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic rock,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+magic crystal,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+arcane blast,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+arcane bolt,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+arcane beam,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+gun reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+rifle reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+pistol reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+shotgun reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+machinegun reload,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+gun cock,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+rifle cock,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+pistol cock,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+shotgun cock,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+holster gun,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+unholster gun,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+high tech gun,HITECH,,AMBIGUOUS,SubCategory 'HITECH' maps to 5 CatIDs
+hitech pistol,HITECH,,AMBIGUOUS,SubCategory 'HITECH' maps to 5 CatIDs
+hitech rifle,HITECH,,AMBIGUOUS,SubCategory 'HITECH' maps to 5 CatIDs
+sci fi alarm,ALARM,,AMBIGUOUS,SubCategory 'ALARM' maps to 2 CatIDs
+scifi alarm,ALARM,,AMBIGUOUS,SubCategory 'ALARM' maps to 2 CatIDs
+door open,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+door close,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+airlock open,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+airlock close,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+sci fi door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+scifi door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+weapon door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+sci fi vehicle,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+hover vehicle,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+future vehicle,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+sci fi car,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+sci fi bike,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+hover bike,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+hovercraft passby,VEHICLE,,AMBIGUOUS,SubCategory 'VEHICLE' maps to 3 CatIDs
+monster growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+monster roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+monster scream,SHOUT,,NO_MATCH,not found in ucs_catid_list
+monster screech,SHOUT,,NO_MATCH,not found in ucs_catid_list
+monster grunt,GRUNT,,NO_MATCH,not found in ucs_catid_list
+monster snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+monster groan,GROAN,,NO_MATCH,not found in ucs_catid_list
+monster moan,MOAN,,NO_MATCH,not found in ucs_catid_list
+monster howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+monster shriek,SHOUT,,NO_MATCH,not found in ucs_catid_list
+monster chatter,CHATTER,,NO_MATCH,not found in ucs_catid_list
+monster click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+monster bite,BITE,,NO_MATCH,not found in ucs_catid_list
+monster attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+monster strike,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+monster stomp,FOOTSTEP,,NO_MATCH,not found in ucs_catid_list
+monster step,FOOTSTEP,,NO_MATCH,not found in ucs_catid_list
+monster footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+monster walk,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+monster run,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+monster charge,ATTACK,,NO_MATCH,not found in ucs_catid_list
+monster scratch,SCRATCH,,NO_MATCH,not found in ucs_catid_list
+monster claw,CLAW,,NO_MATCH,not found in ucs_catid_list
+monster claw swipe,CLAW,,NO_MATCH,not found in ucs_catid_list
+monster swipe,CLAW,,NO_MATCH,not found in ucs_catid_list
+monster drool,LIQUID,,NO_MATCH,not found in ucs_catid_list
+monster slime,MUD,,NO_MATCH,not found in ucs_catid_list
+monster mucus,MUD,,NO_MATCH,not found in ucs_catid_list
+creature growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+creature roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+creature screech,SHOUT,,NO_MATCH,not found in ucs_catid_list
+creature grunt,GRUNT,,NO_MATCH,not found in ucs_catid_list
+creature groan,GROAN,,NO_MATCH,not found in ucs_catid_list
+creature moan,GROAN,,NO_MATCH,not found in ucs_catid_list
+creature howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+creature snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+creature whimper,WHINE,,NO_MATCH,not found in ucs_catid_list
+creature chirp,CHIRP,,NO_MATCH,not found in ucs_catid_list
+creature croak,CROAK,,NO_MATCH,not found in ucs_catid_list
+creature ribbit,CROAK,,NO_MATCH,not found in ucs_catid_list
+creature rustle,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+creature step,FOOTSTEP,,NO_MATCH,not found in ucs_catid_list
+creature footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+creature skitter,SCURRY,,NO_MATCH,not found in ucs_catid_list
+creature scurry,SCURRY,,NO_MATCH,not found in ucs_catid_list
+creature bite,BITE,,NO_MATCH,not found in ucs_catid_list
+creature chew,CHEW,,NO_MATCH,not found in ucs_catid_list
+creature munch,CHEW,,NO_MATCH,not found in ucs_catid_list
+creature swallow,SWALLOW,,NO_MATCH,not found in ucs_catid_list
+creature screech attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+creature charge,ATTACK,,NO_MATCH,not found in ucs_catid_list
+creature attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+creature strike,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+creature claw,CLAW,,NO_MATCH,not found in ucs_catid_list
+creature scratch,SCRATCH,,NO_MATCH,not found in ucs_catid_list
+creature slash,CLAW,,NO_MATCH,not found in ucs_catid_list
+animal growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+animal roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+animal bark,BARK,,NO_MATCH,not found in ucs_catid_list
+animal whine,WHINE,,NO_MATCH,not found in ucs_catid_list
+animal whimper,WHINE,,NO_MATCH,not found in ucs_catid_list
+animal howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+dog bark,BARK,,NO_MATCH,not found in ucs_catid_list
+dog growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+dog whine,WHINE,,NO_MATCH,not found in ucs_catid_list
+dog step,FOOTSTEP,,NO_MATCH,not found in ucs_catid_list
+dog footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+dog chew,CHEW,,NO_MATCH,not found in ucs_catid_list
+dog shake,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+wolf howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+wolf growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+wolf snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+wolf footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+bear growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+bear roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+bear grunt,GRUNT,,NO_MATCH,not found in ucs_catid_list
+bear footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+lion roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+lion growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+lion snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+tiger growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+tiger roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+tiger snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+bird chirp,CHIRP,,NO_MATCH,not found in ucs_catid_list
+bird tweet,CHIRP,,NO_MATCH,not found in ucs_catid_list
+bird song,CHIRP,,NO_MATCH,not found in ucs_catid_list
+bird screech,SHOUT,,NO_MATCH,not found in ucs_catid_list
+bird caw,SHOUT,,NO_MATCH,not found in ucs_catid_list
+bird call,CHIRP,,NO_MATCH,not found in ucs_catid_list
+eagle screech,SHOUT,,NO_MATCH,not found in ucs_catid_list
+owl hoot,HOOT,,NO_MATCH,not found in ucs_catid_list
+insect buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+insect hum,BUZZ,,NO_MATCH,not found in ucs_catid_list
+insect swarm,BUZZ,,NO_MATCH,not found in ucs_catid_list
+mosquito buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+fly buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+bee buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+bee swarm,BUZZ,,NO_MATCH,not found in ucs_catid_list
+bee hive hum,BUZZ,,NO_MATCH,not found in ucs_catid_list
+bat screech,SHOUT,,NO_MATCH,not found in ucs_catid_list
+bat chirp,CHIRP,,NO_MATCH,not found in ucs_catid_list
+snake slither,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+snake strike,BITE,,NO_MATCH,not found in ucs_catid_list
+snake rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+rat scurry,SCURRY,,NO_MATCH,not found in ucs_catid_list
+rat footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+mouse scurry,SCURRY,,NO_MATCH,not found in ucs_catid_list
+frog croak,CROAK,,NO_MATCH,not found in ucs_catid_list
+frog ribbit,CROAK,,NO_MATCH,not found in ucs_catid_list
+dragon roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+dragon growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+dragon fire breath,ELEMENTAL,,AMBIGUOUS,SubCategory 'ELEMENTAL' maps to 2 CatIDs
+dragon screech,SHOUT,,NO_MATCH,not found in ucs_catid_list
+dragon stomp,FOOTSTEP,,NO_MATCH,not found in ucs_catid_list
+dragon attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+undead groan,GROAN,,NO_MATCH,not found in ucs_catid_list
+zombie groan,GROAN,,NO_MATCH,not found in ucs_catid_list
+zombie moan,GROAN,,NO_MATCH,not found in ucs_catid_list
+zombie scream,SHOUT,,NO_MATCH,not found in ucs_catid_list
+zombie snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+zombie footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+zombie attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+ghost wail,SHOUT,,NO_MATCH,not found in ucs_catid_list
+ghost moan,GROAN,,NO_MATCH,not found in ucs_catid_list
+ghost float,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+spirit wail,SHOUT,,NO_MATCH,not found in ucs_catid_list
+spirit moan,GROAN,,NO_MATCH,not found in ucs_catid_list
+spirit howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+demon roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+demon growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+demon scream,SHOUT,,NO_MATCH,not found in ucs_catid_list
+demon howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+demon attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+demon strike,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+witch cackle,SHOUT,,NO_MATCH,not found in ucs_catid_list
+witch laugh,SHOUT,,NO_MATCH,not found in ucs_catid_list
+witch chant,CHANT,,NO_MATCH,not found in ucs_catid_list
+goblin scream,SHOUT,,NO_MATCH,not found in ucs_catid_list
+goblin chatter,CHATTER,,NO_MATCH,not found in ucs_catid_list
+goblin footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+goblin snarl,SNARL,,NO_MATCH,not found in ucs_catid_list
+troll roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+troll growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+troll footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+troll attack,ATTACK,,NO_MATCH,not found in ucs_catid_list
+ogre roar,GROWL,,NO_MATCH,not found in ucs_catid_list
+ogre growl,GROWL,,NO_MATCH,not found in ucs_catid_list
+ogre stomp,FOOTSTEP,,NO_MATCH,not found in ucs_catid_list
+ogre impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+wind howl,HOWL,,NO_MATCH,not found in ucs_catid_list
+water pour,LIQUID,,NO_MATCH,not found in ucs_catid_list
+water flow,LIQUID,,NO_MATCH,not found in ucs_catid_list
+water stream,LIQUID,,NO_MATCH,not found in ucs_catid_list
+water rush,LIQUID,,NO_MATCH,not found in ucs_catid_list
+water swirl,LIQUID,,NO_MATCH,not found in ucs_catid_list
+river flow,STREAM,,NO_MATCH,not found in ucs_catid_list
+creek flow,STREAM,,NO_MATCH,not found in ucs_catid_list
+creek trickle,STREAM,,NO_MATCH,not found in ucs_catid_list
+lake ambience,AMBIENCE,,AMBIGUOUS,Category 'AMBIENCE' has 47 CatIDs
+forest birds,CHIRP,,NO_MATCH,not found in ucs_catid_list
+forest insects,BUZZ,,NO_MATCH,not found in ucs_catid_list
+forest leaves,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+forest rustle,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+forest creek,STREAM,,NO_MATCH,not found in ucs_catid_list
+jungle ambience,JUNGLE,,NO_MATCH,not found in ucs_catid_list
+jungle birds,CHIRP,,NO_MATCH,not found in ucs_catid_list
+jungle insects,BUZZ,,NO_MATCH,not found in ucs_catid_list
+jungle monkeys,CHATTER,,NO_MATCH,not found in ucs_catid_list
+jungle rustle,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+mountain ambience,MOUNTAIN,,NO_MATCH,not found in ucs_catid_list
+mountain echo,ECHO,,NO_MATCH,not found in ucs_catid_list
+cave ambience,CAVE,,NO_MATCH,not found in ucs_catid_list
+cave echo,ECHO,,NO_MATCH,not found in ucs_catid_list
+underground ambience,AMBIENCE,,AMBIGUOUS,Category 'AMBIENCE' has 47 CatIDs
+swamp insects,BUZZ,,NO_MATCH,not found in ucs_catid_list
+swamp frogs,CROAK,,NO_MATCH,not found in ucs_catid_list
+swamp mud,MUD,,NO_MATCH,not found in ucs_catid_list
+mud splash,MUD,,NO_MATCH,not found in ucs_catid_list
+mud slosh,MUD,,NO_MATCH,not found in ucs_catid_list
+fire crackle,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+fire burn,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+fire roar,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+fire woosh,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+campfire crackle,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+forest fire,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+wildfire roar,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+ice crack,ICE,,AMBIGUOUS,Category 'ICE' has 8 CatIDs
+ice break,ICE,,AMBIGUOUS,Category 'ICE' has 8 CatIDs
+ice shatter,ICE,,AMBIGUOUS,Category 'ICE' has 8 CatIDs
+ice crunch,ICE,,AMBIGUOUS,Category 'ICE' has 8 CatIDs
+snow footsteps,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+snow crunch,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+snow fall,AMBIENCE,,AMBIGUOUS,Category 'AMBIENCE' has 47 CatIDs
+hail impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+hail hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+tree creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+tree break,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+tree fall,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+rock slide,ROCK,,AMBIGUOUS,CatShort 'ROCK' has 8 CatIDs
+rock crumble,ROCK,,AMBIGUOUS,CatShort 'ROCK' has 8 CatIDs
+rock impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+earthquake impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+volcano explosion,EXPLOSION,,NO_MATCH,not found in ucs_catid_list
+lava flow,LIQUID,,NO_MATCH,not found in ucs_catid_list
+lava bubble,LIQUID,,NO_MATCH,not found in ucs_catid_list
+door slam,SLAM,,NO_MATCH,not found in ucs_catid_list
+door close,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+door open,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+door creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+door hinge,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+door latch,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+door rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+door impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+door bang,SLAM,,NO_MATCH,not found in ucs_catid_list
+door knock,KNOCK,,AMBIGUOUS,SubCategory 'KNOCK' maps to 2 CatIDs
+door handle,HANDLE,,AMBIGUOUS,SubCategory 'HANDLE' maps to 16 CatIDs
+door push,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+door pull,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+gate slam,SLAM,,NO_MATCH,not found in ucs_catid_list
+gate close,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+gate creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+drawer open,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+drawer close,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+drawer slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+drawer rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+closet door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+cabinet open,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cabinet close,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cabinet slam,SLAM,,NO_MATCH,not found in ucs_catid_list
+window open,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+window close,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+window slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+window rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+window knock,KNOCK,,AMBIGUOUS,SubCategory 'KNOCK' maps to 2 CatIDs
+cloth rustle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cloth swish,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cloth whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+cloth drop,DROP,,NO_MATCH,not found in ucs_catid_list
+cloth fold,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cloth hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+cloth scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+fabric rustle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+fabric rub,FRICTION,,AMBIGUOUS,SubCategory 'FRICTION' maps to 10 CatIDs
+fabric pull,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+fabric tear,TEAR,,NO_MATCH,not found in ucs_catid_list
+fabric snap,TEAR,,NO_MATCH,not found in ucs_catid_list
+leather creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+leather rub,FRICTION,,AMBIGUOUS,SubCategory 'FRICTION' maps to 10 CatIDs
+leather strap,SNAP,,NO_MATCH,not found in ucs_catid_list
+leather tighten,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+leather shift,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+footstep concrete,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep wood,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep tile,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep carpet,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep gravel,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep sand,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep grass,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep dirt,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep mud,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep snow,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+footstep metal,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+shoe scuff,SCUFF,,NO_MATCH,not found in ucs_catid_list
+shoe drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+boot step,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+boot stomp,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+heel click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+heel step,FOOTSTEPS,,AMBIGUOUS,Category 'FOOTSTEPS' has 5 CatIDs
+key jingle,JINGLE,,NO_MATCH,not found in ucs_catid_list
+key insert,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+key turn,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+key rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+key drop,DROP,,NO_MATCH,not found in ucs_catid_list
+bag rustle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+bag drop,DROP,,NO_MATCH,not found in ucs_catid_list
+bag shake,RATTLE,,NO_MATCH,not found in ucs_catid_list
+plastic rustle,RUSTLE,,NO_MATCH,not found in ucs_catid_list
+plastic crumble,RUSTLE,,NO_MATCH,not found in ucs_catid_list
+plastic crackle,RUSTLE,,NO_MATCH,not found in ucs_catid_list
+plastic hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+plastic drop,DROP,,NO_MATCH,not found in ucs_catid_list
+plastic snap,BREAK,,AMBIGUOUS,SubCategory 'BREAK' maps to 8 CatIDs
+paper rustle,RUSTLE,,NO_MATCH,not found in ucs_catid_list
+paper flip,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+paper tear,TEAR,,NO_MATCH,not found in ucs_catid_list
+paper crumple,RUSTLE,,NO_MATCH,not found in ucs_catid_list
+paper drop,DROP,,NO_MATCH,not found in ucs_catid_list
+paper shuffle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cardboard creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+cardboard tear,TEAR,,NO_MATCH,not found in ucs_catid_list
+cardboard crush,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+cardboard drop,DROP,,NO_MATCH,not found in ucs_catid_list
+box open,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+box close,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+box slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+box shake,RATTLE,,NO_MATCH,not found in ucs_catid_list
+box drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+food bite,BITE,,NO_MATCH,not found in ucs_catid_list
+food chew,CHEW,,NO_MATCH,not found in ucs_catid_list
+food crunch,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+food crack,BREAK,,AMBIGUOUS,SubCategory 'BREAK' maps to 8 CatIDs
+food peel,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+vegetable chop,CHOP,,NO_MATCH,not found in ucs_catid_list
+vegetable cut,CUT,,NO_MATCH,not found in ucs_catid_list
+vegetable slice,CUT,,NO_MATCH,not found in ucs_catid_list
+fruit cut,CUT,,NO_MATCH,not found in ucs_catid_list
+fruit peel,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+apple bite,BITE,,NO_MATCH,not found in ucs_catid_list
+apple crunch,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+bottle open,OPEN,,NO_MATCH,not found in ucs_catid_list
+bottle close,CLOSE,,NO_MATCH,not found in ucs_catid_list
+bottle cap twist,TWIST,,NO_MATCH,not found in ucs_catid_list
+bottle pour,LIQUID,,NO_MATCH,not found in ucs_catid_list
+bottle shake,RATTLE,,NO_MATCH,not found in ucs_catid_list
+bottle drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+cup clink,CLINK,,NO_MATCH,not found in ucs_catid_list
+cup hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+cup drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+glass clink,CLINK,,NO_MATCH,not found in ucs_catid_list
+glass hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+glass drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+glass shatter,SHATTER,,NO_MATCH,not found in ucs_catid_list
+glass slide,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+mug hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+mug slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+mug drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+fork clink,CLINK,,NO_MATCH,not found in ucs_catid_list
+fork hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+fork drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+spoon clink,CLINK,,NO_MATCH,not found in ucs_catid_list
+spoon drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+knife cut,CUT,,NO_MATCH,not found in ucs_catid_list
+knife chop,CHOP,,NO_MATCH,not found in ucs_catid_list
+knife scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+knife drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+plate clink,CLINK,,NO_MATCH,not found in ucs_catid_list
+plate hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+plate drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+plate slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+dish wash,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+dish clatter,RATTLE,,NO_MATCH,not found in ucs_catid_list
+pan scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+pan hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+pan drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+pot boil,LIQUID,,NO_MATCH,not found in ucs_catid_list
+pot hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+pot rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+kettle boil,STEAM,,AMBIGUOUS,SubCategory 'STEAM' maps to 3 CatIDs
+match strike,STRIKE,,NO_MATCH,not found in ucs_catid_list
+match burn,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+match extinguish,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+lighter click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+lighter flick,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+lighter flame,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+wood creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+wood break,BREAK,,AMBIGUOUS,SubCategory 'BREAK' maps to 8 CatIDs
+wood crack,BREAK,,AMBIGUOUS,SubCategory 'BREAK' maps to 8 CatIDs
+wood drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+wood scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+metal impact,METAL,,AMBIGUOUS,SubCategory 'METAL' maps to 4 CatIDs
+metal clang,CLANK,,NO_MATCH,not found in ucs_catid_list
+metal hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+metal scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+metal rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+metal drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+metal bend,BEND,,NO_MATCH,not found in ucs_catid_list
+metal grind,GRIND,,NO_MATCH,not found in ucs_catid_list
+metal clink,CLANK,,NO_MATCH,not found in ucs_catid_list
+metal roll,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+chain rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+chain drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+chain drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+rope pull,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+rope drop,DROP,,NO_MATCH,not found in ucs_catid_list
+rope swing,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+rope creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+clothespin snap,SNAP,,NO_MATCH,not found in ucs_catid_list
+towel rustle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+blanket rustle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+bedsheet rustle,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+pillow hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+pillow fluff,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+sofa creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+sofa movement,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+chair creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+chair drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+chair drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+chair scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+table hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+table slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+table drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+table creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+fan spin,WHIRL,,NO_MATCH,not found in ucs_catid_list
+fan hum,HUM,,NO_MATCH,not found in ucs_catid_list
+fan whir,WHIRL,,NO_MATCH,not found in ucs_catid_list
+fan start,START,,NO_MATCH,not found in ucs_catid_list
+fan stop,STOP,,NO_MATCH,not found in ucs_catid_list
+air conditioner hum,HUM,,NO_MATCH,not found in ucs_catid_list
+air conditioner fan,WHIRL,,NO_MATCH,not found in ucs_catid_list
+air conditioner click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+vacuum start,START,,NO_MATCH,not found in ucs_catid_list
+vacuum stop,STOP,,NO_MATCH,not found in ucs_catid_list
+vacuum run,HUM,,NO_MATCH,not found in ucs_catid_list
+vacuum suction,SUCTION,,AMBIGUOUS,SubCategory 'SUCTION' maps to 2 CatIDs
+washing machine run,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+washing machine spin,SPIN,,NO_MATCH,not found in ucs_catid_list
+washing machine shake,RATTLE,,NO_MATCH,not found in ucs_catid_list
+dryer spin,SPIN,,NO_MATCH,not found in ucs_catid_list
+dryer run,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+dryer door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+refrigerator hum,HUM,,NO_MATCH,not found in ucs_catid_list
+refrigerator rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+oven door,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+oven click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+microwave open,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+microwave close,DOOR,,AMBIGUOUS,SubCategory 'DOOR' maps to 5 CatIDs
+electric kettle click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+keyboard typing,KEYBOARD,,NO_MATCH,not found in ucs_catid_list
+keyboard click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+mouse click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+mouse scroll,SCROLL,,NO_MATCH,not found in ucs_catid_list
+mouse drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+phone vibration,VIBRATION,,NO_MATCH,not found in ucs_catid_list
+phone tap,TAP,,NO_MATCH,not found in ucs_catid_list
+phone swipe,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+remote click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+remote tap,TAP,,NO_MATCH,not found in ucs_catid_list
+switch click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+switch toggle,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+light turn on,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+light turn off,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+light hum,HUM,,NO_MATCH,not found in ucs_catid_list
+light buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+lamp switch,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+toilet flush,FLUSH,,NO_MATCH,not found in ucs_catid_list
+toilet lid,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+toilet fill,LIQUID,,NO_MATCH,not found in ucs_catid_list
+sink run,LIQUID,,NO_MATCH,not found in ucs_catid_list
+faucet open,LIQUID,,NO_MATCH,not found in ucs_catid_list
+faucet close,LIQUID,,NO_MATCH,not found in ucs_catid_list
+shower run,LIQUID,,NO_MATCH,not found in ucs_catid_list
+soap rub,FRICTION,,AMBIGUOUS,SubCategory 'FRICTION' maps to 10 CatIDs
+soap drop,DROP,,NO_MATCH,not found in ucs_catid_list
+towel rub,FRICTION,,AMBIGUOUS,SubCategory 'FRICTION' maps to 10 CatIDs
+hairbrush comb,COMB,,NO_MATCH,not found in ucs_catid_list
+hair dryer run,WHIRR,,NO_MATCH,not found in ucs_catid_list
+hair dryer blow,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+razor buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+electric shaver buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+doorbell ring,RING,,NO_MATCH,not found in ucs_catid_list
+alarm clock ring,ALARM,,AMBIGUOUS,SubCategory 'ALARM' maps to 2 CatIDs
+clock chime,RING,,NO_MATCH,not found in ucs_catid_list
+book flip,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+book close,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+book drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+page flip,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+pen click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+pen write,SCRIBBLE,,NO_MATCH,not found in ucs_catid_list
+pen drop,DROP,,NO_MATCH,not found in ucs_catid_list
+pencil write,SCRIBBLE,,NO_MATCH,not found in ucs_catid_list
+pencil drop,DROP,,NO_MATCH,not found in ucs_catid_list
+stapler click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+stapler punch,PUNCH,,NO_MATCH,not found in ucs_catid_list
+scissors cut,CUT,,NO_MATCH,not found in ucs_catid_list
+scissors snip,CUT,,NO_MATCH,not found in ucs_catid_list
+scissors scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+engine start,START,,NO_MATCH,not found in ucs_catid_list
+engine stop,STOP,,NO_MATCH,not found in ucs_catid_list
+engine idle,HUM,,NO_MATCH,not found in ucs_catid_list
+engine rev,REV,,NO_MATCH,not found in ucs_catid_list
+motor hum,HUM,,NO_MATCH,not found in ucs_catid_list
+motor start,START,,NO_MATCH,not found in ucs_catid_list
+motor stop,STOP,,NO_MATCH,not found in ucs_catid_list
+machine whirr,WHIRR,,NO_MATCH,not found in ucs_catid_list
+machine clank,CLANK,,NO_MATCH,not found in ucs_catid_list
+machine rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+machine run,MACHINE,,AMBIGUOUS,SubCategory 'MACHINE' maps to 2 CatIDs
+machine click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+gear shift,SHIFT,,NO_MATCH,not found in ucs_catid_list
+gear click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+gear grind,GRIND,,NO_MATCH,not found in ucs_catid_list
+mechanism click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+mechanism turn,TURN,,NO_MATCH,not found in ucs_catid_list
+mechanism slide,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+lever pull,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+lever push,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+lever click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+switch toggle,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+button press,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+button release,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+button tap,TAP,,NO_MATCH,not found in ucs_catid_list
+knob turn,TURN,,NO_MATCH,not found in ucs_catid_list
+hinge creak,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+hinge bend,BEND,,NO_MATCH,not found in ucs_catid_list
+tools drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+tools rattle,RATTLE,,NO_MATCH,not found in ucs_catid_list
+hammer hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+hammer tap,TAP,,NO_MATCH,not found in ucs_catid_list
+wrench click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+wrench turn,TURN,,NO_MATCH,not found in ucs_catid_list
+screw tighten,TURN,,NO_MATCH,not found in ucs_catid_list
+screw loosen,TURN,,NO_MATCH,not found in ucs_catid_list
+screwdriver twist,TURN,,NO_MATCH,not found in ucs_catid_list
+drill run,DRILL,,NO_MATCH,not found in ucs_catid_list
+drill spin,SPIN,,NO_MATCH,not found in ucs_catid_list
+drill impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+saw cut,CUT,,NO_MATCH,not found in ucs_catid_list
+saw scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+grinder spark,GRIND,,NO_MATCH,not found in ucs_catid_list
+grinder spin,SPIN,,NO_MATCH,not found in ucs_catid_list
+bright boom,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+quick boom,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+resonant boom,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+dark resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+metal resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+wood resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+body resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+hollow resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+deep resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+low resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+tight resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+ringing resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+metal ring,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+glass ring,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+bell ring,RING,,NO_MATCH,not found in ucs_catid_list
+high ring,RING,,NO_MATCH,not found in ucs_catid_list
+sharp ring,RING,,NO_MATCH,not found in ucs_catid_list
+low ring,RING,,NO_MATCH,not found in ucs_catid_list
+long ring,RING,,NO_MATCH,not found in ucs_catid_list
+short ring,RING,,NO_MATCH,not found in ucs_catid_list
+ping metallic,PING,,NO_MATCH,not found in ucs_catid_list
+high ping,PING,,NO_MATCH,not found in ucs_catid_list
+low ping,PING,,NO_MATCH,not found in ucs_catid_list
+sharp ping,PING,,NO_MATCH,not found in ucs_catid_list
+thin ping,PING,,NO_MATCH,not found in ucs_catid_list
+tiny ping,PING,,NO_MATCH,not found in ucs_catid_list
+tight ping,PING,,NO_MATCH,not found in ucs_catid_list
+ping sweetener,PING,,NO_MATCH,not found in ucs_catid_list
+impact sweetener,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+hit sweetener,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+slam sweetener,SLAM,,NO_MATCH,not found in ucs_catid_list
+whoosh sweetener,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+sci fi sweetener,MISC,,AMBIGUOUS,SubCategory 'MISC' maps to 77 CatIDs
+thump sweetener,THUMP,,NO_MATCH,not found in ucs_catid_list
+tiny thump,THUMP,,NO_MATCH,not found in ucs_catid_list
+big thump,THUMP,,NO_MATCH,not found in ucs_catid_list
+deep thump,THUMP,,NO_MATCH,not found in ucs_catid_list
+soft thump,THUMP,,NO_MATCH,not found in ucs_catid_list
+heavy thump,THUMP,,NO_MATCH,not found in ucs_catid_list
+low thump,THUMP,,NO_MATCH,not found in ucs_catid_list
+body thump,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+body hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+body slap,SLAP,,NO_MATCH,not found in ucs_catid_list
+body fall,FALL,,NO_MATCH,not found in ucs_catid_list
+body stumble,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+body roll,ROLL,,NO_MATCH,not found in ucs_catid_list
+body drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+cloth thump,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+cloth fall,FALL,,NO_MATCH,not found in ucs_catid_list
+cloth movement,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+cloth shake,RUSTLE,,NO_MATCH,not found in ucs_catid_list
+cloth whip,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+texture scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+texture rub,FRICTION,,AMBIGUOUS,SubCategory 'FRICTION' maps to 10 CatIDs
+texture scratch,SCRATCH,,NO_MATCH,not found in ucs_catid_list
+texture drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+texture grit,GRAVEL,,NO_MATCH,not found in ucs_catid_list
+grit scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+grit drag,DRAG,,NO_MATCH,not found in ucs_catid_list
+grit fall,GRAVEL,,NO_MATCH,not found in ucs_catid_list
+grit shake,GRAVEL,,NO_MATCH,not found in ucs_catid_list
+crunch debris,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+light debris,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+heavy debris,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+falling debris,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+collapsing debris,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+rubble fall,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+rubble impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+rubble slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+dust fall,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+dust burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+dust whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+dust scatter,SCATTER,,NO_MATCH,not found in ucs_catid_list
+scatter debris,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+scatter dirt,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+scatter wood,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+scatter metal,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+scatter glass,SHATTER,,NO_MATCH,not found in ucs_catid_list
+light shatter,SHATTER,,NO_MATCH,not found in ucs_catid_list
+heavy shatter,SHATTER,,NO_MATCH,not found in ucs_catid_list
+micro shatter,SHATTER,,NO_MATCH,not found in ucs_catid_list
+tiny shatter,SHATTER,,NO_MATCH,not found in ucs_catid_list
+crystal shatter,SHATTER,,NO_MATCH,not found in ucs_catid_list
+crystal chime,RING,,NO_MATCH,not found in ucs_catid_list
+crystal crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+crystal hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+crystal fall,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+thin crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+deep crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+sharp crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+surface crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+stress crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+shear crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+metal shear,SHEAR,,NO_MATCH,not found in ucs_catid_list
+metal shred,TEAR,,NO_MATCH,not found in ucs_catid_list
+metal grind,GRIND,,NO_MATCH,not found in ucs_catid_list
+metal wobble,WOBBLE,,NO_MATCH,not found in ucs_catid_list
+metal stress,SHEAR,,NO_MATCH,not found in ucs_catid_list
+metal buckle,BEND,,NO_MATCH,not found in ucs_catid_list
+metal fatigue,BEND,,NO_MATCH,not found in ucs_catid_list
+glass shear,SHATTER,,NO_MATCH,not found in ucs_catid_list
+glass tension,TENSION,,NO_MATCH,not found in ucs_catid_list
+wood tension,TENSION,,NO_MATCH,not found in ucs_catid_list
+rope fray,TEAR,,NO_MATCH,not found in ucs_catid_list
+branch snap,BREAK,,AMBIGUOUS,SubCategory 'BREAK' maps to 8 CatIDs
+branch stress,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+branch bend,CREAK,,AMBIGUOUS,SubCategory 'CREAK' maps to 4 CatIDs
+branch sway,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+branch scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+leaf flutter,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+leaf rustle,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+leaf swirl,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+leaf burst,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+foliage burst,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+foliage hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+foliage slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+grass movement,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+grass rustle,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+grass crunch,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+hay rustle,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+hay movement,FOLIAGE,,NO_MATCH,not found in ucs_catid_list
+dirt fall,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+dirt hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+dirt pour,LIQUID,,NO_MATCH,not found in ucs_catid_list
+dirt slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+ash fall,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+ash burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+ash scatter,SCATTER,,NO_MATCH,not found in ucs_catid_list
+ash swirl,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+sand scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+sand crunch,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+sand pour,LIQUID,,NO_MATCH,not found in ucs_catid_list
+sand fall,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+sand swirl,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+gravel fall,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+gravel slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+gravel scatter,SCATTER,,NO_MATCH,not found in ucs_catid_list
+gravel crunch,CRUNCH,,NO_MATCH,not found in ucs_catid_list
+pebble drop,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+pebble scatter,SCATTER,,NO_MATCH,not found in ucs_catid_list
+stone hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+stone crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+stone scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+stone slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+stone grind,GRIND,,NO_MATCH,not found in ucs_catid_list
+stone crumble,ROCK,,AMBIGUOUS,CatShort 'ROCK' has 8 CatIDs
+wall hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+wall scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+wall crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+wall crumble,ROCK,,AMBIGUOUS,CatShort 'ROCK' has 8 CatIDs
+wall dust,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+floor hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+floor slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+floor scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+ceiling crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+ceiling debris,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+pipe hum,HUM,,NO_MATCH,not found in ucs_catid_list
+pipe pressure,PRESSURE,,NO_MATCH,not found in ucs_catid_list
+pipe burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+pipe crack,CRACK,,NO_MATCH,not found in ucs_catid_list
+steam burst,STEAM,,AMBIGUOUS,SubCategory 'STEAM' maps to 3 CatIDs
+steam leak,STEAM,,AMBIGUOUS,SubCategory 'STEAM' maps to 3 CatIDs
+steam vent,STEAM,,AMBIGUOUS,SubCategory 'STEAM' maps to 3 CatIDs
+pressure burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+pressure build,TENSION,,NO_MATCH,not found in ucs_catid_list
+pressure release,RELEASE,,NO_MATCH,not found in ucs_catid_list
+pressure valve,VALVE,,NO_MATCH,not found in ucs_catid_list
+valve click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+valve release,RELEASE,,NO_MATCH,not found in ucs_catid_list
+valve open,OPEN,,NO_MATCH,not found in ucs_catid_list
+valve close,CLOSE,,NO_MATCH,not found in ucs_catid_list
+air burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+air pressure,PRESSURE,,NO_MATCH,not found in ucs_catid_list
+air rush,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+air swirl,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+air release,RELEASE,,NO_MATCH,not found in ucs_catid_list
+air vent,VENT,,NO_MATCH,not found in ucs_catid_list
+air suction,SUCTION,,AMBIGUOUS,SubCategory 'SUCTION' maps to 2 CatIDs
+air pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+electric snap,SNAP,,NO_MATCH,not found in ucs_catid_list
+electric surge,ELECTRIC,,AMBIGUOUS,SubCategory 'ELECTRIC' maps to 5 CatIDs
+electric pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+electric shock,ELECTRIC,,AMBIGUOUS,SubCategory 'ELECTRIC' maps to 5 CatIDs
+coil hum,HUM,,NO_MATCH,not found in ucs_catid_list
+coil buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+coil resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+circuit click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+circuit hum,HUM,,NO_MATCH,not found in ucs_catid_list
+panel click,CLICK,,AMBIGUOUS,SubCategory 'CLICK' maps to 2 CatIDs
+panel slide,SLIDE,,NO_MATCH,not found in ucs_catid_list
+panel open,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+panel close,MOVEMENT,,AMBIGUOUS,SubCategory 'MOVEMENT' maps to 17 CatIDs
+switch hum,BUZZ,,NO_MATCH,not found in ucs_catid_list
+switch buzz,BUZZ,,NO_MATCH,not found in ucs_catid_list
+switch spark,SPARK,,NO_MATCH,not found in ucs_catid_list
+flame burst,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+flame whoosh,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+flame flicker,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+fire pulse,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+fire snap,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+heat burst,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+heat crackle,FIRE,,AMBIGUOUS,Category 'FIRE' has 10 CatIDs
+heat pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+light glint,GLINT,,NO_MATCH,not found in ucs_catid_list
+light flicker,FLICKER,,NO_MATCH,not found in ucs_catid_list
+light pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+light flare,FLARE,,NO_MATCH,not found in ucs_catid_list
+light bloom,FLARE,,NO_MATCH,not found in ucs_catid_list
+lens flare,FLARE,,NO_MATCH,not found in ucs_catid_list
+glow flicker,FLICKER,,NO_MATCH,not found in ucs_catid_list
+shadow movement,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+dark swirl,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+dark pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+dark burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+orb pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+orb hum,HUM,,NO_MATCH,not found in ucs_catid_list
+orb whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+orb resonance,RESONANCE,,NO_MATCH,not found in ucs_catid_list
+impact pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+impact bloom,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+impact scatter,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+impact fracture,CRACK,,NO_MATCH,not found in ucs_catid_list
+impact spray,DEBRIS,,NO_MATCH,not found in ucs_catid_list
+impact smear,FRICTION,,AMBIGUOUS,SubCategory 'FRICTION' maps to 10 CatIDs
+impact wobble,WOBBLE,,NO_MATCH,not found in ucs_catid_list
+tonal whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+tonal sweep,SWEEP,,NO_MATCH,not found in ucs_catid_list
+tonal rise,RISE,,NO_MATCH,not found in ucs_catid_list
+tonal drop,DROP,,NO_MATCH,not found in ucs_catid_list
+pitch rise,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+pitch fall,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+frequency sweep,SWEEP,,NO_MATCH,not found in ucs_catid_list
+resonant sweep,SWEEP,,NO_MATCH,not found in ucs_catid_list
+cinematic hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+cinematic pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+cinematic whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+cinematic flare,FLARE,,NO_MATCH,not found in ucs_catid_list
+cinematic swell,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+dramatic rise,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+dramatic drop,FALL,,NO_MATCH,not found in ucs_catid_list
+dramatic hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+sweetener rise,PULSE,,NO_MATCH,not found in ucs_catid_list
+sweetener hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+sweetener burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+texture burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+texture pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+texture scrape,SCRAPE,,NO_MATCH,not found in ucs_catid_list
+texture hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+layer hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+layer whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+layer pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+hybrid impact,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+hybrid whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+hybrid rise,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+hybrid burst,BURST,,AMBIGUOUS,SubCategory 'BURST' maps to 2 CatIDs
+abstract hit,IMPACT,,AMBIGUOUS,SubCategory 'IMPACT' maps to 23 CatIDs
+abstract whoosh,WHOOSH,,AMBIGUOUS,SubCategory 'WHOOSH' maps to 3 CatIDs
+abstract pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+surreal pulse,PULSE,,NO_MATCH,not found in ucs_catid_list
+toon,TOON,,AMBIGUOUS,CatShort 'TOON' has 22 CatIDs
+comic,TOON,,AMBIGUOUS,CatShort 'TOON' has 22 CatIDs
+cartoon,TOON,,AMBIGUOUS,CatShort 'TOON' has 22 CatIDs
+water,LIQ,,AMBIGUOUS,CatShort 'LIQ' has 5 CatIDs
+liquid,LIQ,,AMBIGUOUS,CatShort 'LIQ' has 5 CatIDs

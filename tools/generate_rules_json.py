@@ -48,12 +48,19 @@ def generate_rules_json():
     
     catid_df.columns = [c.strip() for c in catid_df.columns]
     
-    # 构建有效 CatID 集合
+    # 构建有效 CatID 集合（同时添加原始值和大写值，以支持大小写不敏感匹配）
+    # 同时构建大写值到原始值的映射（用于查找原始格式）
     valid_catids = set()
+    upper_to_original = {}  # 映射：大写 -> 原始格式
     for _, row in catid_df.iterrows():
         cat_id = str(row.get('CatID', '')).strip()
-        if cat_id:
-            valid_catids.add(cat_id)
+        # 【修复】跳过空行（CatID 为空或 NaN 的行）
+        if not cat_id or cat_id == 'nan' or pd.isna(row.get('CatID')):
+            continue
+        valid_catids.add(cat_id)  # 原始值（如 "GUNMisc"）
+        cat_id_upper = cat_id.upper()
+        valid_catids.add(cat_id_upper)  # 大写值（如 "GUNMISC"）
+        upper_to_original[cat_id_upper] = cat_id  # 保存映射
     
     print(f"[INFO] 找到 {len(valid_catids)} 个有效的 CatID")
     
@@ -105,8 +112,16 @@ def generate_rules_json():
             invalid_catids.append((keyword_raw, cat_id_raw))
             continue
         
+        # 查找原始格式的 CatID（保持官方 UCS 格式：大小写混合）
+        original_catid = upper_to_original.get(cat_id_upper, cat_id_raw)
+        # 如果找不到原始格式，使用输入值（可能已经是原始格式）
+        if original_catid == cat_id_raw and cat_id_raw not in valid_catids:
+            # 如果输入值不在有效集合中，使用大写（降级方案）
+            original_catid = cat_id_upper
+        
         # 存储为元组 (keyword, cat_id, length) 以便排序
-        rules_list.append((keyword_normalized, cat_id_upper, len(keyword_normalized)))
+        # 使用原始格式的 CatID（保持官方 UCS 格式）
+        rules_list.append((keyword_normalized, original_catid, len(keyword_normalized)))
     
     print(f"[INFO] 从 CSV 读取了 {len(alias_df)} 行数据")
     print(f"[INFO] 跳过了 {skipped_rows} 个空行")

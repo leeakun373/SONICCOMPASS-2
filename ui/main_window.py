@@ -43,8 +43,10 @@ class UMAPRecalcThread(QThread):
             ucs_manager.load_all()
             
             from data import SoundminerImporter
+            from data.database_config import get_database_path
+            db_path = get_database_path()
             importer = SoundminerImporter(
-                db_path="./test_assets/Sonic.sqlite",
+                db_path=db_path,
                 ucs_manager=ucs_manager
             )
             
@@ -153,8 +155,10 @@ class AtlasBuilderThread(QThread):
             ucs_manager.load_all()
             
             from data import SoundminerImporter
+            from data.database_config import get_database_path
+            db_path = get_database_path()
             importer = SoundminerImporter(
-                db_path="./test_assets/Sonic.sqlite",
+                db_path=db_path,
                 ucs_manager=ucs_manager
             )
             
@@ -614,8 +618,10 @@ class SonicCompassMainWindow(QMainWindow):
             ucs_manager = UCSManager()
             ucs_manager.load_all()
             
+            from data.database_config import get_database_path
+            db_path = get_database_path()
             importer = SoundminerImporter(
-                db_path="./test_assets/Sonic.sqlite",
+                db_path=db_path,
                 ucs_manager=ucs_manager
             )
             

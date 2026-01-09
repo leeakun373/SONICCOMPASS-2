@@ -103,12 +103,14 @@ def rebuild():
     print("\n📦 初始化引擎...")
     sys.stdout.flush()
     
-    DB_PATH = "./test_assets/Sonic.sqlite"
+    # 【新增】从配置文件读取数据库路径
+    from data.database_config import get_database_path
+    DB_PATH = get_database_path()
     CACHE_DIR = "./cache"
     
     if not Path(DB_PATH).exists():
         print(f"❌ 数据库文件不存在: {DB_PATH}")
-        print("   请确保数据库文件存在于 test_assets/ 目录")
+        print("   请检查 data_config/user_config.json 中的 database_path 配置")
         sys.exit(1)
     
     print("   [步骤] 导入 data 模块...", flush=True)
@@ -257,11 +259,11 @@ def rebuild():
 
         reducer = umap.UMAP(
             n_components=2,
-            n_neighbors=15,  # 调整为 15 以保持更好的全局结构
+            n_neighbors=80,  # 调整为 15 以保持更好的全局结构
             min_dist=0.001,
             spread=0.5,
             metric='cosine',
-            target_weight=0.75,  # 高监督：0.75 形成紧密大陆，强制按主类别聚类
+            target_weight=1,  # 高监督：0.75 形成紧密大陆，强制按主类别聚类
             target_metric='categorical',
             random_state=42,
             n_jobs=1
