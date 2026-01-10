@@ -921,16 +921,28 @@ class SonicUniverse(QGraphicsScene):
         # 2. 再构建场景 (必须传入算好的 norm_coords)
         self._build_scene_data(self.norm_coords)
         
-        # 3. 最后适配视图
+        # 3. 最后适配视图（确保覆盖 0-3000 范围）
         if hasattr(self, 'norm_coords') and self.norm_coords is not None and len(self.norm_coords) > 0:
             min_coords = self.norm_coords.min(axis=0)
             max_coords = self.norm_coords.max(axis=0)
-            margin = 500.0
+            
+            # 【改进】确保场景矩形覆盖固定的 0-3000 范围（参考 verify_subset.py）
+            # 这样数据和 hexbin 都会完全在坐标系内
+            coord_min = 0.0
+            coord_max = 3000.0
+            
+            # 场景矩形应该至少覆盖 0-3000，并包含所有数据（带一些边距）
+            margin = 100.0  # 小边距即可
+            scene_min_x = min(float(min_coords[0]), coord_min) - margin
+            scene_max_x = max(float(max_coords[0]), coord_max) + margin
+            scene_min_y = min(float(min_coords[1]), coord_min) - margin
+            scene_max_y = max(float(max_coords[1]), coord_max) + margin
+            
             rect = QRectF(
-                float(min_coords[0]) - margin,
-                float(min_coords[1]) - margin,
-                float(max_coords[0] - min_coords[0]) + 2 * margin,
-                float(max_coords[1] - min_coords[1]) + 2 * margin
+                scene_min_x,
+                scene_min_y,
+                scene_max_x - scene_min_x,
+                scene_max_y - scene_min_y
             )
             self.setSceneRect(rect)
         
@@ -1138,26 +1150,39 @@ class SonicUniverse(QGraphicsScene):
                 traceback.print_exc()
                 sys.stdout.flush()
         
-        # 设置场景矩形（基于实际坐标）
+        # 设置场景矩形（确保覆盖 0-3000 范围）
         print("[DEBUG] build: 设置场景矩形...", flush=True)
         sys.stdout.flush()
         if len(norm_coords) > 0:
             min_coords = norm_coords.min(axis=0)
             max_coords = norm_coords.max(axis=0)
-            margin = 500.0
+            
+            # 【改进】确保场景矩形覆盖固定的 0-3000 范围（参考 verify_subset.py）
+            # 这样数据和 hexbin 都会完全在坐标系内
+            coord_min = 0.0
+            coord_max = 3000.0
+            
+            # 场景矩形应该至少覆盖 0-3000，并包含所有数据（带一些边距）
+            margin = 100.0  # 小边距即可
+            scene_min_x = min(float(min_coords[0]), coord_min) - margin
+            scene_max_x = max(float(max_coords[0]), coord_max) + margin
+            scene_min_y = min(float(min_coords[1]), coord_min) - margin
+            scene_max_y = max(float(max_coords[1]), coord_max) + margin
+            
             rect = QRectF(
-                float(min_coords[0]) - margin,
-                float(min_coords[1]) - margin,
-                float(max_coords[0] - min_coords[0]) + 2 * margin,
-                float(max_coords[1] - min_coords[1]) + 2 * margin
+                scene_min_x,
+                scene_min_y,
+                scene_max_x - scene_min_x,
+                scene_max_y - scene_min_y
             )
             self.setSceneRect(rect)
-            print(f"[DEBUG] build: 场景矩形设置完成: {rect}", flush=True)
+            print(f"[DEBUG] build: 场景矩形设置完成: {rect} (覆盖 0-3000 范围)", flush=True)
             sys.stdout.flush()
         else:
-            print("[WARNING] norm_coords 为空，使用默认场景矩形", flush=True)
+            print("[WARNING] norm_coords 为空，使用默认场景矩形 (0-3000)", flush=True)
             sys.stdout.flush()
-            self.setSceneRect(0, 0, 3500, 3500)
+            # 使用固定的 0-3000 范围（带边距）
+            self.setSceneRect(-100, -100, 3200, 3200)
         
         print("[DEBUG] build: 完成！", flush=True)
         sys.stdout.flush()
@@ -1417,6 +1442,49 @@ class SonicUniverse(QGraphicsScene):
         
         # 切换到 gravity 模式
         self.set_view_mode('gravity')
+    
+    def update_coordinates(self, new_coords_2d: np.ndarray):
+        """
+        更新坐标（用于模式切换时重新加载坐标）
+        
+        Args:
+            new_coords_2d: 新的坐标数组 (N, 2)
+        """
+        if new_coords_2d is None or len(new_coords_2d) == 0:
+            print("[WARNING] 尝试更新坐标，但新坐标为空")
+            return
+        
+        # 检查坐标有效性
+        valid_mask = np.isfinite(new_coords_2d).all(axis=1)
+        if np.sum(valid_mask) == 0:
+            print("[ERROR] 新坐标全部无效，无法更新")
+            return
+        
+        # 更新坐标
+        self.coords_2d = new_coords_2d.copy()
+        
+        # 重新归一化坐标
+        if len(self.coords_2d) > 0:
+            valid_coords = self.coords_2d[valid_mask]
+            min_v = np.min(valid_coords, axis=0)
+            max_v = np.max(valid_coords, axis=0)
+            coord_range = max_v - min_v
+            max_range = np.max(coord_range) if np.max(coord_range) > 0 else 1.0
+            scale = 3000.0 / max_range
+            self.norm_coords = (self.coords_2d - min_v) * scale
+        else:
+            self.norm_coords = np.zeros_like(self.coords_2d)
+        
+        # 更新原始坐标（用于恢复）
+        self.original_coords_2d = self.norm_coords.copy()
+        
+        # 重新构建网格（如果需要）
+        if hasattr(self, 'hex_layer') and self.hex_layer:
+            self.hex_layer.set_data(self.hex_layer.grid_data, self.metadata, self.norm_coords)
+        
+        # 更新视图
+        self.update()
+        print(f"[INFO] 坐标已更新: shape={self.coords_2d.shape}, range=[{self.coords_2d[valid_mask].min(axis=0)}, {self.coords_2d[valid_mask].max(axis=0)}]")
     
     def get_items_in_rect(self, rect: QRectF) -> List[Dict]:
         """

@@ -1,0 +1,740 @@
+{
+  "AIR": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "AIR 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "AIRCRAFT": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "AIRCRAFT 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ALARMS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ALARMS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "AMBIENCE": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "AMBIENCE 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ANIMALS": {
+    "x": 2747.198486328125,
+    "y": 189.91506958007812,
+    "radius": 286.5151000976563,
+    "gap_buffer": 28.65151000976563,
+    "description": "ANIMALS 大类",
+    "count": 323,
+    "has_data": true
+  },
+  "ARCHIVED": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ARCHIVED 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "BEEPS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "BEEPS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "BELLS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "BELLS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "BIRDS": {
+    "x": 2168.14794921875,
+    "y": 2199.27001953125,
+    "radius": 63.27928085327149,
+    "gap_buffer": 7.5935137023925785,
+    "description": "BIRDS 大类",
+    "count": 132,
+    "has_data": true
+  },
+  "BOATS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "BOATS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "BULLETS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "BULLETS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CARTOON": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CARTOON 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CERAMICS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CERAMICS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CHAINS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CHAINS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CHEMICALS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CHEMICALS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CLOCKS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CLOCKS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CLOTH": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CLOTH 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "COMMUNICATIONS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "COMMUNICATIONS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "COMPUTERS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "COMPUTERS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "CREATURES": {
+    "x": 496.961669921875,
+    "y": 2428.635986328125,
+    "radius": 300.0,
+    "gap_buffer": 30.0,
+    "description": "CREATURES 大类",
+    "count": 310,
+    "has_data": true
+  },
+  "CROWDS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "CROWDS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "DESIGNED": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "DESIGNED 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "DESTRUCTION": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "DESTRUCTION 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "DIRT & SAND": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "DIRT & SAND 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "DOORS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "DOORS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "DRAWERS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "DRAWERS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ELECTRICITY": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ELECTRICITY 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "EQUIPMENT": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "EQUIPMENT 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "EXPLOSIONS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "EXPLOSIONS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FARTS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FARTS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FIGHT": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FIGHT 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FIRE": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FIRE 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FIREWORKS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FIREWORKS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FOLEY": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FOLEY 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FOOD & DRINK": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FOOD & DRINK 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "FOOTSTEPS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "FOOTSTEPS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "GAMES": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "GAMES 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "GEOTHERMAL": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "GEOTHERMAL 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "GLASS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "GLASS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "GORE": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "GORE 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "GUNS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "GUNS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "HORNS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "HORNS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "HUMAN": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "HUMAN 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ICE": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ICE 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "LASERS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "LASERS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "LEATHER": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "LEATHER 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "LIQUID & MUD": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "LIQUID & MUD 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "MACHINES": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "MACHINES 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "MAGIC": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "MAGIC 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "MECHANICAL": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "MECHANICAL 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "METAL": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "METAL 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "MOTORS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "MOTORS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "MOVEMENT": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "MOVEMENT 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "MUSICAL": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "MUSICAL 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "NATURAL DISASTER": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "NATURAL DISASTER 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "OBJECTS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "OBJECTS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "PAPER": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "PAPER 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "PLASTIC": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "PLASTIC 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "RAIN": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "RAIN 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ROBOTS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ROBOTS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ROCKS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ROCKS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "ROPE": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "ROPE 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "RUBBER": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "RUBBER 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "SCIFI": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "SCIFI 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "SNOW": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "SNOW 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "SPORTS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "SPORTS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "SWOOSHES": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "SWOOSHES 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "TOOLS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "TOOLS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "TOYS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "TOYS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "TRAINS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "TRAINS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "USER INTERFACE": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "USER INTERFACE 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "VEGETATION": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "VEGETATION 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "VEHICLES": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "VEHICLES 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "VOICES": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "VOICES 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WATER": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WATER 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WEAPONS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WEAPONS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WEATHER": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WEATHER 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WHISTLES": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WHISTLES 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WIND": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WIND 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WINDOWS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WINDOWS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WINGS": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WINGS 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  },
+  "WOOD": {
+    "x": 0.0,
+    "y": 0.0,
+    "radius": 15.0,
+    "gap_buffer": 2.25,
+    "description": "WOOD 大类（无数据，需手动调整坐标）",
+    "count": 0,
+    "has_data": false
+  }
+}

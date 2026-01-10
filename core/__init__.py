@@ -9,6 +9,11 @@ from .vector_engine import VectorEngine
 from .ucs_manager import UCSManager
 from .category_color_mapper import CategoryColorMapper
 from . import umap_config
+from .layout_engine import (
+    compute_ucs_layout,
+    compute_gravity_layout,
+    load_ucs_coordinates_config
+)
 
 __all__ = [
     'DataProcessor',
@@ -18,5 +23,8 @@ __all__ = [
     'UCSManager',
     'CategoryColorMapper',
     'umap_config',
+    'compute_ucs_layout',
+    'compute_gravity_layout',
+    'load_ucs_coordinates_config',
 ]
 

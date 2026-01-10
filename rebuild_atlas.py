@@ -67,11 +67,24 @@ except ImportError:
 # from data import SoundminerImporter
 # from core import DataProcessor, VectorEngine
 
-def rebuild():
+def rebuild(mode: str = "both"):
+    """
+    重建地图
+    
+    Args:
+        mode: 计算模式 ("ucs", "gravity", "both")
+            - "ucs": 只计算UCS模式坐标
+            - "gravity": 只计算Gravity模式坐标
+            - "both": 同时计算两种模式（默认）
+    """
     print("=" * 60, flush=True)
-    print("🚀 Sonic Compass: 正在重绘星系地图 (Rebuilding Atlas)", flush=True)
+    print(f"🚀 Sonic Compass: 正在重绘星系地图 (Rebuilding Atlas) - Mode: {mode}", flush=True)
     print("=" * 60, flush=True)
     sys.stdout.flush()
+    
+    if mode not in ["ucs", "gravity", "both"]:
+        print(f"❌ 无效的模式: {mode}，请使用 'ucs', 'gravity' 或 'both'")
+        sys.exit(1)
 
     # 1. 检查并生成白金质心 (Phase 3.5 Critical Step)
     centroid_path = Path("./cache/platinum_centroids_754.pkl")
@@ -129,7 +142,10 @@ def rebuild():
     print("   [步骤] 导入 core 模块...", flush=True)
     sys.stdout.flush()
     try:
-        from core import DataProcessor, VectorEngine, inject_category_vectors, umap_config
+        from core import (
+            DataProcessor, VectorEngine, inject_category_vectors, umap_config,
+            compute_ucs_layout, compute_gravity_layout, UCSManager
+        )
         print("   [步骤] ✅ DataProcessor 和 VectorEngine 导入成功", flush=True)
         sys.stdout.flush()
     except ImportError as e:
@@ -141,7 +157,14 @@ def rebuild():
     
     print("   正在初始化 SoundminerImporter...", flush=True)
     sys.stdout.flush()
-    importer = SoundminerImporter(db_path=DB_PATH)
+    try:
+        ucs_manager = UCSManager()
+        ucs_manager.load_all()
+        importer = SoundminerImporter(db_path=DB_PATH, ucs_manager=ucs_manager)
+    except Exception as e:
+        print(f"   [WARNING] UCSManager 初始化失败，使用默认配置: {e}")
+        importer = SoundminerImporter(db_path=DB_PATH)
+        ucs_manager = None
     
     print("   正在加载向量模型（这可能需要几秒钟）...", flush=True)
     sys.stdout.flush()
@@ -156,6 +179,12 @@ def rebuild():
         vector_engine=vector_engine,
         cache_dir=CACHE_DIR
     )
+    # 确保processor有ucs_manager
+    if ucs_manager:
+        processor.ucs_manager = ucs_manager
+        # 确保processor有ucs_manager
+        if ucs_manager:
+            processor.ucs_manager = ucs_manager
     print("   ✅ 初始化完成", flush=True)
     sys.stdout.flush()
 
@@ -260,46 +289,110 @@ def rebuild():
             print(f"   [统计] 缺失类别数量: {missing_count} (已标记为 -1)")
         sys.stdout.flush()
 
-        # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
-        print("   ⚓ 正在实施超级锚点策略 (Super-Anchor Strategy)...", flush=True)
-        print("   强制同一主类别的数据聚集，解决'大陆漂移'问题...", flush=True)
-        injection_params = umap_config.get_injection_params()
-        X_combined, _ = inject_category_vectors(
-            embeddings=embeddings,
-            target_labels=targets_original,  # 使用原始字符串列表，避免-1陷阱
-            audio_weight=injection_params['audio_weight'],
-            category_weight=injection_params['category_weight']
-        )
-        print(f"   ✅ 向量注入完成: {embeddings.shape} -> {X_combined.shape}", flush=True)
-        print(f"   音频权重: {injection_params['audio_weight']}, 类别锚点权重: {injection_params['category_weight']}", flush=True)
-        sys.stdout.flush()
+        # 根据模式选择计算方式
+        if mode in ["ucs", "both"]:
+            print("\n" + "=" * 60)
+            print("🗺️  UCS模式: 定锚群岛策略 (Fixed Archipelago Strategy)")
+            print("=" * 60)
+            
+            # 确保UCSManager已初始化
+            if not ucs_manager:
+                try:
+                    ucs_manager = UCSManager()
+                    ucs_manager.load_all()
+                    processor.ucs_manager = ucs_manager
+                except Exception as e:
+                    print(f"❌ UCSManager 初始化失败: {e}")
+                    if mode == "ucs":
+                        sys.exit(1)
+            
+            # 使用新的布局引擎计算UCS坐标
+            try:
+                coords_ucs, _ = compute_ucs_layout(
+                    metadata=meta,
+                    embeddings=embeddings,
+                    ucs_manager=ucs_manager,
+                    config_path="data_config/ucs_coordinates.json",
+                    use_parallel=True
+                )
+                processor.save_coordinates(coords_ucs, mode="ucs")
+                print("✅ UCS坐标计算完成并保存")
+            except FileNotFoundError as e:
+                print(f"❌ UCS模式需要配置文件: {e}")
+                print("   请先运行: python tools/extract_category_centroids.py")
+                if mode == "ucs":
+                    sys.exit(1)
+            except Exception as e:
+                print(f"❌ UCS模式计算失败: {e}")
+                import traceback
+                traceback.print_exc()
+                if mode == "ucs":
+                    sys.exit(1)
+        
+        if mode in ["gravity", "both"]:
+            print("\n" + "=" * 60)
+            print("🌌 Gravity模式: 纯无监督全局UMAP")
+            print("=" * 60)
+            
+            # 使用新的布局引擎计算Gravity坐标
+            try:
+                coords_gravity = compute_gravity_layout(
+                    metadata=meta,
+                    embeddings=embeddings
+                )
+                processor.save_coordinates(coords_gravity, mode="gravity")
+                print("✅ Gravity坐标计算完成并保存")
+            except Exception as e:
+                print(f"❌ Gravity模式计算失败: {e}")
+                import traceback
+                traceback.print_exc()
+                if mode == "gravity":
+                    sys.exit(1)
+        
+        # 【旧代码保留：向后兼容，已禁用】
+        # 注释掉旧的全局UMAP逻辑（UCS模式不再使用）
+        # 旧逻辑已被新的layout_engine替代
+        if False:  # 禁用旧逻辑
+            # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+            print("   ⚓ 正在实施超级锚点策略 (Super-Anchor Strategy)...", flush=True)
+            print("   强制同一主类别的数据聚集，解决'大陆漂移'问题...", flush=True)
+            injection_params = umap_config.get_injection_params()
+            X_combined, _ = inject_category_vectors(
+                embeddings=embeddings,
+                target_labels=targets_original,  # 使用原始字符串列表，避免-1陷阱
+                audio_weight=injection_params['audio_weight'],
+                category_weight=injection_params['category_weight']
+            )
+            print(f"   ✅ 向量注入完成: {embeddings.shape} -> {X_combined.shape}", flush=True)
+            print(f"   音频权重: {injection_params['audio_weight']}, 类别锚点权重: {injection_params['category_weight']}", flush=True)
+            sys.stdout.flush()
 
-        # 从统一配置获取UMAP参数
-        umap_params = umap_config.get_umap_params()
-        reducer = umap.UMAP(**umap_params)
-        
-        print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
-        print("   [提示] UMAP 会显示详细的计算进度信息")
-        sys.stdout.flush()
-        
-        # 记录开始时间
-        umap_start = time.time()
-        # 使用注入后的混合向量（X_combined）替代原始embeddings
-        coords_2d = reducer.fit_transform(X_combined, y=targets_encoded)
-        umap_elapsed = time.time() - umap_start
-        
-        print(f"   ✅ UMAP 计算完成（耗时 {umap_elapsed:.1f} 秒）")
-        sys.stdout.flush()
-        
-        # 归一化
-        min_coords = coords_2d.min(axis=0)
-        max_coords = coords_2d.max(axis=0)
-        scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
-        coords_2d = (coords_2d - min_coords) * scale
-        
-        processor.save_coordinates(coords_2d)
-        print("✅ 坐标计算完成并保存")
-        sys.stdout.flush()
+            # 从统一配置获取UMAP参数
+            umap_params = umap_config.get_umap_params()
+            reducer = umap.UMAP(**umap_params)
+            
+            print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
+            print("   [提示] UMAP 会显示详细的计算进度信息")
+            sys.stdout.flush()
+            
+            # 记录开始时间
+            umap_start = time.time()
+            # 使用注入后的混合向量（X_combined）替代原始embeddings
+            coords_2d = reducer.fit_transform(X_combined, y=targets_encoded)
+            umap_elapsed = time.time() - umap_start
+            
+            print(f"   ✅ UMAP 计算完成（耗时 {umap_elapsed:.1f} 秒）")
+            sys.stdout.flush()
+            
+            # 归一化
+            min_coords = coords_2d.min(axis=0)
+            max_coords = coords_2d.max(axis=0)
+            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
+            coords_2d = (coords_2d - min_coords) * scale
+            
+            processor.save_coordinates(coords_2d, mode="legacy")
+            print("✅ 坐标计算完成并保存")
+            sys.stdout.flush()
 
     except Exception as e:
         print(f"❌ UMAP 计算失败: {e}")
@@ -316,11 +409,20 @@ def rebuild():
     print("=" * 60)
 
 if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='重建Sonic Compass地图')
+    parser.add_argument('--mode', type=str, default='both',
+                       choices=['ucs', 'gravity', 'both'],
+                       help='计算模式: ucs (UCS模式), gravity (Gravity模式), both (两者都计算，默认)')
+    
+    args = parser.parse_args()
+    
     # 立即输出，确保用户能看到脚本开始运行
     print("[启动] rebuild_atlas.py 开始运行...", flush=True)
     sys.stdout.flush()
     try:
-        rebuild()
+        rebuild(mode=args.mode)
     except KeyboardInterrupt:
         print("\n[中断] 用户中断了脚本执行", flush=True)
         sys.exit(1)

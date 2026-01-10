@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QMessageBox
 )
 from PySide6.QtCore import QThread, Signal as QtSignal, Signal
-from PySide6.QtCore import Qt, QRectF
+from PySide6.QtCore import Qt, QRectF, QPointF
 
 from ui.components import CanvasView, SearchBar, InspectorPanel, UniversalTagger
 from ui.visualizer import SonicUniverse
@@ -353,6 +353,7 @@ class SonicCompassMainWindow(QMainWindow):
         self.canvas_view = CanvasView()
         self.canvas_view.zoom_changed.connect(self._on_zoom_changed)
         self.canvas_view.selection_made.connect(self._on_selection_made)
+        self.canvas_view.mouse_moved.connect(self._on_mouse_moved)  # 连接鼠标移动信号
         canvas_layout.addWidget(self.canvas_view)
         
         main_layout.addWidget(canvas_container, stretch=1)
@@ -536,6 +537,31 @@ class SonicCompassMainWindow(QMainWindow):
         
         layout.addSpacing(10)
         
+        # 坐标可视化控制
+        coord_title = QLabel("COORDINATES")
+        coord_title.setObjectName("section_title")
+        coord_title.setStyleSheet(mode_title.styleSheet())
+        layout.addWidget(coord_title)
+        
+        # 显示坐标轴复选框
+        self.show_axes_checkbox = QCheckBox("Show Axes")
+        self.show_axes_checkbox.setStyleSheet(self.axes_toggle.styleSheet())
+        self.show_axes_checkbox.toggled.connect(self._on_show_axes_toggled)
+        layout.addWidget(self.show_axes_checkbox)
+        
+        # 显示范围圆圈复选框
+        self.show_range_checkbox = QCheckBox("Show Range Circle")
+        self.show_range_checkbox.setStyleSheet(self.axes_toggle.styleSheet())
+        self.show_range_checkbox.toggled.connect(self._on_show_range_toggled)
+        layout.addWidget(self.show_range_checkbox)
+        
+        # 鼠标坐标显示标签
+        self.coord_label = QLabel("Position: (0, 0)")
+        self.coord_label.setStyleSheet("color: #5F636E; font-size: 10px;")
+        layout.addWidget(self.coord_label)
+        
+        layout.addSpacing(20)
+        
         # Rebuild Atlas 按钮（完整重建）
         self.rebuild_btn = QPushButton("🔄 Rebuild Atlas (Full)")
         self.rebuild_btn.setStyleSheet("""
@@ -655,28 +681,39 @@ class SonicCompassMainWindow(QMainWindow):
             # 加载索引
             metadata, embeddings = self.processor.load_index()
             
-            # 加载坐标
-            coords_2d = self.processor.load_coordinates()
+            # 加载坐标（根据当前模式）
+            current_mode = self.get_current_mode()  # 默认使用UCS模式
+            coords_2d = self.processor.load_coordinates(mode=current_mode)
             if coords_2d is None:
-                print("[WARNING] 未找到预计算的坐标，将自动计算 UMAP 坐标...")
+                print(f"[WARNING] 未找到预计算的{current_mode}模式坐标，将自动计算 UMAP 坐标...")
                 # 自动计算 UMAP 坐标
-                coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor)
+                coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor, mode=current_mode)
                 if coords_2d is not None:
                     # 保存新计算的坐标
-                    self.processor.save_coordinates(coords_2d)
-                    print("[INFO] UMAP 坐标计算完成并已保存")
+                    self.processor.save_coordinates(coords_2d, mode=current_mode)
+                    print(f"[INFO] {current_mode}模式 UMAP 坐标计算完成并已保存")
             else:
-                # 检查坐标有效性
-                valid_mask = np.isfinite(coords_2d).all(axis=1)
-                valid_count = np.sum(valid_mask)
-                if valid_count == 0:
-                    print("[ERROR] 加载的坐标全部无效，将重新计算...")
-                    coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor)
+                # 验证一致性
+                is_valid, emb_count, coord_count = self.processor.validate_consistency(mode=current_mode)
+                if not is_valid:
+                    print(f"[WARNING] 坐标文件与embeddings不一致: {emb_count} vs {coord_count}")
+                    print(f"[INFO] 将重新计算{current_mode}模式坐标...")
+                    coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor, mode=current_mode)
                     if coords_2d is not None:
-                        self.processor.save_coordinates(coords_2d)
-                        print("[INFO] UMAP 坐标重新计算完成并已保存")
+                        self.processor.save_coordinates(coords_2d, mode=current_mode)
+                        print(f"[INFO] {current_mode}模式坐标重新计算完成并已保存")
                 else:
-                    print(f"[DEBUG] 加载坐标: shape={coords_2d.shape}, 有效={valid_count}/{len(coords_2d)}, range=[{coords_2d[valid_mask].min(axis=0)}, {coords_2d[valid_mask].max(axis=0)}]")
+                    # 检查坐标有效性
+                    valid_mask = np.isfinite(coords_2d).all(axis=1)
+                    valid_count = np.sum(valid_mask)
+                    if valid_count == 0:
+                        print("[ERROR] 加载的坐标全部无效，将重新计算...")
+                        coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor, mode=current_mode)
+                        if coords_2d is not None:
+                            self.processor.save_coordinates(coords_2d, mode=current_mode)
+                            print(f"[INFO] {current_mode}模式坐标重新计算完成并已保存")
+                    else:
+                        print(f"[DEBUG] 加载{current_mode}模式坐标: shape={coords_2d.shape}, 有效={valid_count}/{len(coords_2d)}, range=[{coords_2d[valid_mask].min(axis=0)}, {coords_2d[valid_mask].max(axis=0)}]")
             
             # 创建搜索核心
             self.search_core = SearchCore(
@@ -825,9 +862,9 @@ class SonicCompassMainWindow(QMainWindow):
             if result_data is None:
                 raise ValueError("构建结果为空")
             
-            # 保存坐标
+            # 保存坐标（UCS模式，因为AtlasBuilderThread使用UCS逻辑）
             if 'processor' in result_data:
-                result_data['processor'].save_coordinates(result_data['coords_2d'])
+                result_data['processor'].save_coordinates(result_data['coords_2d'], mode="ucs")
             
             # 重新加载数据
             self.status_label.setText("Reloading data...")
@@ -851,7 +888,23 @@ class SonicCompassMainWindow(QMainWindow):
                 self.recalc_umap_btn.setEnabled(True)
             self.status_label.setText("Ready")
     
-    def _compute_umap_coordinates_sync(self, metadata, embeddings, processor):
+    def get_current_mode(self) -> str:
+        """
+        获取当前视图模式
+        
+        Returns:
+            "ucs" 或 "gravity"
+        """
+        # 根据按钮状态判断模式
+        if hasattr(self, 'explorer_btn') and self.explorer_btn.isChecked():
+            return "ucs"  # Explorer模式对应UCS模式
+        elif hasattr(self, 'gravity_btn') and self.gravity_btn.isChecked():
+            return "gravity"
+        else:
+            # 默认使用UCS模式
+            return "ucs"
+    
+    def _compute_umap_coordinates_sync(self, metadata, embeddings, processor, mode: str = "ucs"):
         """
         同步计算 UMAP 坐标（用于初始化时自动计算）
         
@@ -859,78 +912,51 @@ class SonicCompassMainWindow(QMainWindow):
             metadata: 元数据列表
             embeddings: 向量矩阵
             processor: DataProcessor 实例
+            mode: 坐标模式 ("ucs", "gravity")
             
         Returns:
             2D 坐标矩阵，如果失败则返回 None
         """
         try:
-            import umap
-            from sklearn.preprocessing import LabelEncoder
-            import numpy as np
+            from core import compute_ucs_layout, compute_gravity_layout
             
-            print("[INFO] 开始计算 UMAP 坐标...")
+            print(f"[INFO] 开始计算 {mode} 模式 UMAP 坐标...")
             
-            # 提取主类别标签用于监督学习
-            targets = []
-            if processor.ucs_manager:
-                for meta in metadata:
-                    cat_id = meta.get('category', 'UNCATEGORIZED')
-                    main_cat = processor.ucs_manager.get_main_category_by_id(cat_id)
-                    targets.append(main_cat if main_cat != "UNCATEGORIZED" else "UNCATEGORIZED")
-            else:
-                targets = ["UNCATEGORIZED"] * len(metadata)
-            
-            # 【超级锚点策略】保存原始字符串列表（用于向量注入）
-            targets_original = targets.copy()
-            
-            # 编码标签
-            if any(t != "UNCATEGORIZED" and t is not None for t in targets):
-                le = LabelEncoder()
-                encoded_targets = []
-                for t in targets_original:
-                    if t == "UNCATEGORIZED" or t is None:
-                        encoded_targets.append(-1)
-                    else:
-                        encoded_targets.append(t)
+            if mode == "ucs":
+                # UCS模式：使用定锚群岛策略
+                if not processor.ucs_manager:
+                    from core import UCSManager
+                    processor.ucs_manager = UCSManager()
+                    processor.ucs_manager.load_all()
                 
-                unique_targets = sorted(set([t for t in encoded_targets if t != -1]))
-                if len(unique_targets) > 1:
-                    le.fit(unique_targets)
-                    encoded = [le.transform([t])[0] if t != -1 else -1 for t in encoded_targets]
-                else:
-                    encoded = [-1] * len(targets)
-            else:
-                encoded = [-1] * len(targets)
+                try:
+                    coords_2d, _ = compute_ucs_layout(
+                        metadata=metadata,
+                        embeddings=embeddings,
+                        ucs_manager=processor.ucs_manager,
+                        config_path="data_config/ucs_coordinates.json",
+                        use_parallel=False  # UI中使用顺序执行
+                    )
+                    print(f"[INFO] UCS模式坐标计算完成")
+                    return coords_2d
+                except FileNotFoundError:
+                    print(f"[WARNING] UCS配置文件不存在，使用Gravity模式计算")
+                    mode = "gravity"  # 回退到Gravity模式
+                except Exception as e:
+                    print(f"[WARNING] UCS模式计算失败: {e}，使用Gravity模式计算")
+                    mode = "gravity"  # 回退到Gravity模式
             
-            # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
-            print("[INFO] 应用超级锚点策略...")
-            injection_params = umap_config.get_injection_params()
-            X_combined, _ = inject_category_vectors(
-                embeddings=embeddings,
-                target_labels=targets_original,  # 使用原始字符串列表
-                audio_weight=injection_params['audio_weight'],
-                category_weight=injection_params['category_weight']
-            )
-            print(f"[INFO] 向量注入完成: {embeddings.shape} -> {X_combined.shape}")
+            if mode == "gravity":
+                # Gravity模式：纯无监督全局UMAP
+                coords_2d = compute_gravity_layout(
+                    metadata=metadata,
+                    embeddings=embeddings
+                )
+                print(f"[INFO] Gravity模式坐标计算完成")
+                return coords_2d
             
-            # 计算 UMAP (使用统一配置)
-            umap_params = umap_config.get_umap_params()
-            reducer = umap.UMAP(**umap_params)
-            
-            if any(t != -1 for t in encoded):
-                # 使用注入后的混合向量（X_combined）替代原始embeddings
-                coords_2d = reducer.fit_transform(X_combined, y=encoded)
-            else:
-                coords_2d = reducer.fit_transform(X_combined)
-            
-            # 坐标归一化到 0-3000
-            min_coords = coords_2d.min(axis=0)
-            max_coords = coords_2d.max(axis=0)
-            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
-            coords_2d = (coords_2d - min_coords) * scale
-            
-            print(f"[INFO] UMAP 坐标计算完成: shape={coords_2d.shape}, range=[{coords_2d.min(axis=0)}, {coords_2d.max(axis=0)}]")
-            return coords_2d
+            # 如果都失败了，返回None
+            return None
             
         except Exception as e:
             print(f"[ERROR] UMAP 坐标计算失败: {e}")
@@ -1000,9 +1026,11 @@ class SonicCompassMainWindow(QMainWindow):
             if result_data is None:
                 raise ValueError("计算结果为空")
             
-            # 保存坐标
+            # 保存坐标（UCS模式，因为UMAPRecalcThread使用UCS逻辑）
             if 'processor' in result_data:
-                result_data['processor'].save_coordinates(result_data['coords_2d'])
+                # 注意：这里保存的是UCS模式坐标
+                # 如果需要同时计算Gravity模式，需要额外调用compute_gravity_layout
+                result_data['processor'].save_coordinates(result_data['coords_2d'], mode="ucs")
             
             # 重新加载数据
             self.status_label.setText("Reloading data...")
@@ -1103,7 +1131,10 @@ class SonicCompassMainWindow(QMainWindow):
             return
         
         try:
-            self.status_label.setText("● Calculating gravity forces...")
+            self.status_label.setText("● Switching to Gravity Mode...")
+            
+            # 加载Gravity模式坐标
+            self._load_coordinates_for_mode("gravity")
             
             # 选择默认引力桩（从 pillars_data.csv 中选择几个代表性的）
             default_pillars = [
@@ -1176,6 +1207,26 @@ class SonicCompassMainWindow(QMainWindow):
             if self.visualizer:
                 self.visualizer.set_view_mode('scatter')
                 self.visualizer.set_axis_config(self.axis_config)
+    
+    def _on_show_axes_toggled(self, checked: bool):
+        """坐标轴显示开关"""
+        if self.canvas_view:
+            self.canvas_view.set_show_axes(checked)
+    
+    def _on_show_range_toggled(self, checked: bool):
+        """范围圆圈显示开关"""
+        if self.canvas_view:
+            self.canvas_view.set_show_range_circle(checked)
+    
+    def _on_mouse_moved(self, scene_pos: QPointF):
+        """鼠标移动事件 - 更新坐标显示"""
+        # 更新坐标标签
+        if hasattr(self, 'coord_label'):
+            x, y = scene_pos.x(), scene_pos.y()
+            self.coord_label.setText(f"Position: ({x:.1f}, {y:.1f})")
+        
+        # 更新状态标签（可选）
+        # self.status_label.setText(f"Mouse: ({scene_pos.x():.1f}, {scene_pos.y():.1f})")
             self.status_label.setText("● Scatter Mode Active")
         else:
             # 返回 Explorer 模式

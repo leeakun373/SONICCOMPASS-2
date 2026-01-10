@@ -64,7 +64,10 @@ class DataProcessor(QObject):
         self.metadata_cache_path = self.cache_dir / "metadata.pkl"
         self.embeddings_cache_path = self.cache_dir / "embeddings.npy"
         self.index_info_path = self.cache_dir / "index_info.pkl"
-        self.coordinates_cache_path = self.cache_dir / "coordinates.npy"
+        # 坐标文件路径（支持多模式）
+        self.coordinates_cache_path = self.cache_dir / "coordinates.npy"  # 旧格式（向后兼容）
+        self.coordinates_ucs_cache_path = self.cache_dir / "coordinates_ucs.npy"  # UCS模式
+        self.coordinates_gravity_cache_path = self.cache_dir / "coordinates_gravity.npy"  # Gravity模式
         self.platinum_centroids_path = self.cache_dir / "platinum_centroids_754.pkl"  # 754 CatID 版本
         
         # AI 语义仲裁相关
@@ -474,15 +477,30 @@ class DataProcessor(QObject):
         
         return metadata_dicts, embeddings
     
-    def load_coordinates(self) -> Optional[np.ndarray]:
+    def load_coordinates(self, mode: str = "ucs") -> Optional[np.ndarray]:
         """
         加载预计算的 UMAP 坐标
+        
+        Args:
+            mode: 坐标模式 ("ucs", "gravity", None)
+                - "ucs": 加载UCS模式坐标
+                - "gravity": 加载Gravity模式坐标
+                - None: 向后兼容，加载旧格式 coordinates.npy
         
         Returns:
             2D 坐标矩阵，如果不存在或全部无效则返回 None
         """
-        if self.coordinates_cache_path.exists():
-            coords = np.load(self.coordinates_cache_path)
+        # 根据模式选择文件路径
+        if mode == "ucs":
+            coord_path = self.coordinates_ucs_cache_path
+        elif mode == "gravity":
+            coord_path = self.coordinates_gravity_cache_path
+        else:
+            # 向后兼容：尝试加载旧格式
+            coord_path = self.coordinates_cache_path
+        
+        if coord_path.exists():
+            coords = np.load(coord_path)
             # 【修复】检查坐标有效性
             valid_mask = np.isfinite(coords).all(axis=1)
             valid_count = np.sum(valid_mask)
@@ -490,7 +508,7 @@ class DataProcessor(QObject):
             if valid_count == 0:
                 # 全部无效，删除损坏的缓存文件
                 print(f"[ERROR] 坐标文件全部无效（NaN/Inf），将删除并重新计算")
-                self.coordinates_cache_path.unlink()
+                coord_path.unlink()
                 return None
             elif valid_count < len(coords):
                 # 部分无效，报告但返回（调用方会过滤）
@@ -500,14 +518,56 @@ class DataProcessor(QObject):
             return coords
         return None
     
-    def save_coordinates(self, coordinates: np.ndarray):
+    def save_coordinates(self, coordinates: np.ndarray, mode: str = "ucs"):
         """
         保存 UMAP 坐标到缓存
         
         Args:
             coordinates: 2D 坐标矩阵
+            mode: 坐标模式 ("ucs", "gravity")
+                - "ucs": 保存到 coordinates_ucs.npy
+                - "gravity": 保存到 coordinates_gravity.npy
         """
-        np.save(self.coordinates_cache_path, coordinates.astype(np.float32))
+        if mode == "ucs":
+            coord_path = self.coordinates_ucs_cache_path
+        elif mode == "gravity":
+            coord_path = self.coordinates_gravity_cache_path
+        else:
+            # 默认使用UCS模式
+            coord_path = self.coordinates_ucs_cache_path
+        
+        np.save(coord_path, coordinates.astype(np.float32))
+        print(f"[INFO] 坐标已保存到: {coord_path} (mode={mode})")
+    
+    def validate_consistency(self, mode: str = "ucs") -> Tuple[bool, int, int]:
+        """
+        验证坐标文件与embeddings的一致性
+        
+        Args:
+            mode: 坐标模式 ("ucs", "gravity")
+        
+        Returns:
+            (is_valid, embedding_count, coordinate_count)
+            - is_valid: 是否一致
+            - embedding_count: embeddings行数
+            - coordinate_count: 坐标文件行数
+        """
+        # 检查embeddings文件
+        if not self.embeddings_cache_path.exists():
+            return (False, 0, 0)
+        
+        embeddings = np.load(self.embeddings_cache_path)
+        embedding_count = len(embeddings)
+        
+        # 检查坐标文件
+        coords = self.load_coordinates(mode=mode)
+        if coords is None:
+            return (False, embedding_count, 0)
+        
+        coordinate_count = len(coords)
+        is_valid = (embedding_count == coordinate_count)
+        
+        return (is_valid, embedding_count, coordinate_count)
     
     def clear_cache(self):
         """清除缓存文件"""

@@ -21,7 +21,10 @@ if sys.platform == 'win32':
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data import SoundminerImporter
-from core import DataProcessor, VectorEngine, UCSManager, inject_category_vectors, umap_config
+from core import (
+    DataProcessor, VectorEngine, UCSManager, inject_category_vectors, umap_config,
+    compute_ucs_layout, compute_gravity_layout
+)
 import umap
 
 
@@ -270,16 +273,15 @@ def visualize_results(
     output_path: Path,
     keyword: str,
     processor: DataProcessor,
-    show_lod0_labels: bool = True
+    show_lod0_labels: bool = True,
+    mode: str = "ucs"
 ):
     """
     使用 matplotlib 生成散点图，支持 LOD 0 标签标注
     
-    【UMAP 坐标说明】
-    - X轴（UMAP 维度 1）: 降维后的第一个维度，表示数据在语义空间中的位置
-    - Y轴（UMAP 维度 2）: 降维后的第二个维度，表示数据在语义空间中的位置
-    - 坐标范围: 通常为 -10 到 10 之间（取决于 UMAP 参数）
-    - 聚类效果: 同一主类别（如 WEAPON）的数据应该在坐标上聚集在一起
+    【新架构 - Fixed Archipelago Strategy】
+    - UCS模式: 使用 compute_ucs_layout() (硬规则 + 局部UMAP)
+    - Gravity模式: 使用 compute_gravity_layout() (纯无监督全局UMAP)
     
     Args:
         metadata_list: 分类后的元数据列表（已包含 coordinates）
@@ -288,81 +290,65 @@ def visualize_results(
         keyword: 搜索关键词（用于标题）
         processor: DataProcessor 实例（用于获取 UCSManager）
         show_lod0_labels: 是否显示 LOD 0 标签（主类别区域标注）
+        mode: 坐标计算模式 ("ucs" 或 "gravity")
     """
-    # 计算 UMAP 降维（2D）
-    print(f"[可视化] 计算 UMAP 降维...")
-    print(f"[说明] UMAP 坐标含义:")
-    print(f"  - X轴: 降维后的第一个维度（语义空间位置）")
-    print(f"  - Y轴: 降维后的第二个维度（语义空间位置）")
-    print(f"  - 同一主类别的数据应该在坐标上聚集（形成'大陆'）")
+    print(f"[可视化] 计算坐标（模式: {mode.upper()}）...")
+    print(f"[说明] 坐标含义:")
+    if mode == "ucs":
+        print(f"  - UCS模式: 硬规则布局 + 局部UMAP（同一大类的数据强制聚集）")
+        print(f"  - X轴/Y轴: 基于预设的大类中心位置")
+    else:
+        print(f"  - Gravity模式: 纯无监督全局UMAP（基于声学特征相似度）")
+        print(f"  - X轴/Y轴: 语义空间位置")
+    
     if len(metadata_list) > 5000:
-        print(f"[提示] 数据量较大（{len(metadata_list)} 条），UMAP 计算可能需要几分钟，请耐心等待...")
+        print(f"[提示] 数据量较大（{len(metadata_list)} 条），计算可能需要几分钟，请耐心等待...")
     
-    # 提取标签用于监督学习（使用主类别）
-    targets = []
-    for meta in metadata_list:
-        main_cat = meta.get('main_category', 'UNCATEGORIZED')
-        targets.append(main_cat if main_cat != "UNCATEGORIZED" else "UNCATEGORIZED")
-    
-    # 【超级锚点策略】保存原始字符串列表（用于向量注入）
-    targets_original = targets.copy()  # 保存字符串列表，避免None
-    
-    # 使用更强的监督参数（与主流程一致）
-    use_supervised = len(metadata_list) > 100 and any(t != "UNCATEGORIZED" and t is not None for t in targets)
-    
-    # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
-    if use_supervised and len(metadata_list) > 50:  # 小数据集可以跳过，避免过度约束
-        print(f"[可视化] 应用超级锚点策略（数据量: {len(metadata_list)}）...")
-        # 从统一配置获取注入参数（支持自适应权重）
-        injection_params = umap_config.get_injection_params(
-            data_size=len(metadata_list),
-            use_adaptive=True  # 启用自适应：小数据集用较小权重
-        )
-        X_combined, _ = inject_category_vectors(
-            embeddings=embeddings,
-            target_labels=targets_original,
-            audio_weight=injection_params['audio_weight'],
-            category_weight=injection_params['category_weight']
-        )
-        print(f"[可视化] 向量注入完成: {embeddings.shape} -> {X_combined.shape} (权重: {injection_params['category_weight']})")
-        embeddings = X_combined  # 使用混合向量替代原始embeddings
-    else:
-        print(f"[可视化] 跳过超级锚点策略（数据量: {len(metadata_list)}）...")
-    
-    # 从统一配置获取UMAP参数（支持自适应和场景判断）
-    umap_params = umap_config.get_umap_params(
-        data_size=len(metadata_list),
-        use_adaptive=True,  # 启用自适应：小数据集使用较小的 min_dist
-        is_supervised=use_supervised  # 根据是否为监督学习决定是否添加监督参数
-    )
-    # 根据数据量调整n_neighbors（避免超出数据量）
-    umap_params['n_neighbors'] = min(umap_params['n_neighbors'], len(embeddings) - 1) if len(embeddings) > 1 else 15
-    
-    reducer = umap.UMAP(**umap_params)
-    
-    # 如果有标签，使用监督 UMAP
-    if use_supervised:
-        from sklearn.preprocessing import LabelEncoder
-        le = LabelEncoder()
-        encoded_targets = []
-        for t in targets_original:
-            if t == "UNCATEGORIZED" or t is None:
-                encoded_targets.append(-1)
+    # 根据模式选择计算方式
+    if mode == "ucs":
+        # UCS模式：使用布局引擎（硬规则 + 局部UMAP）
+        print(f"[可视化] UCS模式: 使用定锚群岛策略（Fixed Archipelago Strategy）...")
+        try:
+            # compute_ucs_layout 返回 (coordinates, category_indices) 元组
+            coordinates_result = compute_ucs_layout(
+                metadata=metadata_list,
+                embeddings=embeddings,
+                ucs_manager=processor.ucs_manager,
+                config_path="data_config/ucs_coordinates.json",
+                use_parallel=False  # 测试脚本使用顺序执行（避免多进程问题）
+            )
+            # 提取坐标数组（第一个元素）
+            if isinstance(coordinates_result, tuple):
+                coordinates = coordinates_result[0]
             else:
-                encoded_targets.append(t)
-        
-        unique_targets = sorted(set([t for t in encoded_targets if t != -1]))
-        if len(unique_targets) > 1:
-            le.fit(unique_targets)
-            encoded = [le.transform([t])[0] if t != -1 else -1 for t in encoded_targets]
-            encoded = np.array(encoded)
-            coordinates = reducer.fit_transform(embeddings, y=encoded)  # embeddings已经是X_combined（如果应用了超级锚点）
-        else:
-            coordinates = reducer.fit_transform(embeddings)
+                coordinates = coordinates_result
+            print(f"[可视化] UCS布局计算完成: {coordinates.shape}")
+        except FileNotFoundError as e:
+            print(f"[WARNING] UCS配置文件不存在: {e}")
+            print(f"[WARNING] 回退到简化的UMAP计算...")
+            # 回退到简化的UMAP计算
+            coordinates = _compute_fallback_umap(metadata_list, embeddings, use_supervised=True)
+        except Exception as e:
+            print(f"[WARNING] UCS布局计算失败: {e}")
+            print(f"[WARNING] 回退到简化的UMAP计算...")
+            # 回退到简化的UMAP计算
+            coordinates = _compute_fallback_umap(metadata_list, embeddings, use_supervised=True)
     else:
-        coordinates = reducer.fit_transform(embeddings)
+        # Gravity模式：使用纯无监督全局UMAP
+        print(f"[可视化] Gravity模式: 使用纯无监督全局UMAP...")
+        try:
+            coordinates = compute_gravity_layout(
+                metadata=metadata_list,
+                embeddings=embeddings
+            )
+            print(f"[可视化] Gravity布局计算完成: {coordinates.shape}")
+        except Exception as e:
+            print(f"[WARNING] Gravity布局计算失败: {e}")
+            print(f"[WARNING] 回退到简化的UMAP计算...")
+            # 回退到简化的UMAP计算
+            coordinates = _compute_fallback_umap(metadata_list, embeddings, use_supervised=False)
     
-    # 【新增】保存坐标到 metadata_list（用于后续 CSV 导出）
+    # 【重要】保存坐标到 metadata_list（用于后续 CSV 导出和可视化）
     for i, meta in enumerate(metadata_list):
         meta['umap_x'] = float(coordinates[i][0])
         meta['umap_y'] = float(coordinates[i][1])
@@ -439,16 +425,91 @@ def visualize_results(
         
         print(f"[可视化] 已标注 {len(lod0_labels)} 个主类别区域")
     
-    plt.title(f'分类验证结果 - 关键词: "{keyword}"\n共 {len(metadata_list)} 条数据' + (' (含LOD0标签)' if show_lod0_labels else ''), 
+    # 设置坐标轴标签（根据模式调整）
+    xlabel = 'X-axis (UCS Layout)' if mode == 'ucs' else 'UMAP Dimension 1 (X-axis)'
+    ylabel = 'Y-axis (UCS Layout)' if mode == 'ucs' else 'UMAP Dimension 2 (Y-axis)'
+    
+    plt.title(f'分类验证结果 - 关键词: "{keyword}" (模式: {mode.upper()})\n共 {len(metadata_list)} 条数据' + (' (含LOD0标签)' if show_lod0_labels else ''), 
               fontsize=14, fontweight='bold')
-    plt.xlabel('UMAP Dimension 1 (X-axis)', fontsize=12)
-    plt.ylabel('UMAP Dimension 2 (Y-axis)', fontsize=12)
+    plt.xlabel(xlabel, fontsize=12)
+    plt.ylabel(ylabel, fontsize=12)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"[可视化] 图片已保存: {output_path}")
     plt.close()
+
+
+def _compute_fallback_umap(metadata_list: List[Dict], embeddings: np.ndarray, use_supervised: bool = True) -> np.ndarray:
+    """
+    回退的UMAP计算（当UCS配置文件不存在时）
+    
+    Args:
+        metadata_list: 元数据列表
+        embeddings: 向量嵌入矩阵
+        use_supervised: 是否使用监督学习
+    
+    Returns:
+        2D坐标数组
+    """
+    # 提取标签用于监督学习（使用主类别）
+    targets = []
+    for meta in metadata_list:
+        main_cat = meta.get('main_category', 'UNCATEGORIZED')
+        targets.append(main_cat if main_cat != "UNCATEGORIZED" else "UNCATEGORIZED")
+    
+    targets_original = targets.copy()
+    use_supervised = use_supervised and len(metadata_list) > 100 and any(t != "UNCATEGORIZED" and t is not None for t in targets)
+    
+    # 【超级锚点策略】向量注入（仅用于回退模式）
+    if use_supervised and len(metadata_list) > 50:
+        print(f"[回退模式] 应用超级锚点策略...")
+        injection_params = umap_config.get_injection_params(
+            data_size=len(metadata_list),
+            use_adaptive=True
+        )
+        X_combined, _ = inject_category_vectors(
+            embeddings=embeddings,
+            target_labels=targets_original,
+            audio_weight=injection_params['audio_weight'],
+            category_weight=injection_params['category_weight']
+        )
+        embeddings = X_combined
+    
+    # 从统一配置获取UMAP参数
+    umap_params = umap_config.get_umap_params(
+        data_size=len(metadata_list),
+        use_adaptive=True,
+        is_supervised=use_supervised
+    )
+    umap_params['n_neighbors'] = min(umap_params['n_neighbors'], len(embeddings) - 1) if len(embeddings) > 1 else 15
+    
+    reducer = umap.UMAP(**umap_params)
+    
+    # 如果有标签，使用监督 UMAP
+    if use_supervised:
+        from sklearn.preprocessing import LabelEncoder
+        le = LabelEncoder()
+        encoded_targets = []
+        for t in targets_original:
+            if t == "UNCATEGORIZED" or t is None:
+                encoded_targets.append(-1)
+            else:
+                encoded_targets.append(t)
+        
+        unique_targets = sorted(set([t for t in encoded_targets if t != -1]))
+        if len(unique_targets) > 1:
+            le.fit(unique_targets)
+            encoded = [le.transform([t])[0] if t != -1 else -1 for t in encoded_targets]
+            encoded = np.array(encoded)
+            coordinates = reducer.fit_transform(embeddings, y=encoded)
+        else:
+            coordinates = reducer.fit_transform(embeddings)
+    else:
+        coordinates = reducer.fit_transform(embeddings)
+    
+    return coordinates
 
 
 def print_classification_report(metadata_list: List[Dict], processor: DataProcessor):
@@ -627,6 +688,8 @@ def main():
     parser.add_argument('--db', type=str, default=None, help='数据库路径（默认从配置文件读取）')
     parser.add_argument('--output', type=str, default=None, help='输出图片路径（可选，默认自动生成）')
     parser.add_argument('--no-lod0', action='store_true', dest='no_lod0', help='禁用 LOD 0 标签标注')
+    parser.add_argument('--mode', type=str, default='ucs', choices=['ucs', 'gravity'],
+                       help='坐标计算模式: ucs (UCS模式，默认), gravity (Gravity模式)')
     
     args = parser.parse_args()
     
@@ -689,6 +752,7 @@ def main():
     print(f"输出图片: {output_path.name}")
     print(f"时间戳: {timestamp}")
     print(f"LOD 0 标签: {'禁用' if args.no_lod0 else '启用'}")
+    print(f"坐标模式: {args.mode}")
     print()
     
     # 1. 初始化组件
@@ -757,7 +821,8 @@ def main():
     
     # 5. 可视化
     print(f"\n[步骤 5/5] 生成可视化...")
-    visualize_results(classified_metadata, embeddings, output_path, keyword, processor, show_lod0_labels=not args.no_lod0)
+    visualize_results(classified_metadata, embeddings, output_path, keyword, processor, 
+                     show_lod0_labels=not args.no_lod0, mode=args.mode)
     
     # 6. 打印报告
     print_classification_report(classified_metadata, processor)
