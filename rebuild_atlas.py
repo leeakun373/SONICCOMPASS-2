@@ -129,7 +129,7 @@ def rebuild():
     print("   [步骤] 导入 core 模块...", flush=True)
     sys.stdout.flush()
     try:
-        from core import DataProcessor, VectorEngine
+        from core import DataProcessor, VectorEngine, inject_category_vectors
         print("   [步骤] ✅ DataProcessor 和 VectorEngine 导入成功", flush=True)
         sys.stdout.flush()
     except ImportError as e:
@@ -228,6 +228,9 @@ def rebuild():
             else:
                 targets.append(target_label)  # 列表里是 [AMBIENCE, AMBIENCE, WEAPONS, WEAPONS, ...]
         
+        # 【超级锚点策略】保存原始字符串列表（避免-1陷阱）
+        targets_original = targets.copy()  # 保存字符串列表，用于向量注入
+        
         # 使用 LabelEncoder 编码为整数数组
         # 将 "UNCATEGORIZED" 标记为特殊值，编码后再替换为 -1
         label_encoder = LabelEncoder()
@@ -257,22 +260,43 @@ def rebuild():
             print(f"   [统计] 缺失类别数量: {missing_count} (已标记为 -1)")
         sys.stdout.flush()
 
+        # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+        print("   ⚓ 正在实施超级锚点策略 (Super-Anchor Strategy)...", flush=True)
+        print("   强制同一主类别的数据聚集，解决'大陆漂移'问题...", flush=True)
+        X_combined, _ = inject_category_vectors(
+            embeddings=embeddings,
+            target_labels=targets_original,  # 使用原始字符串列表，避免-1陷阱
+            audio_weight=1.0,
+            category_weight=15.0  # 强力胶水：15.0的权重足以压倒音频特征差异
+        )
+        print(f"   ✅ 向量注入完成: {embeddings.shape} -> {X_combined.shape}", flush=True)
+        print(f"   音频权重: 1.0, 类别锚点权重: 15.0", flush=True)
+        sys.stdout.flush()
+
         reducer = umap.UMAP(
             n_components=2,
             n_neighbors=80,  # 调整为 15 以保持更好的全局结构
-            min_dist=0.001,
+            min_dist=0.05,  # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
             spread=0.5,
             metric='cosine',
-            target_weight=1,  # 高监督：0.75 形成紧密大陆，强制按主类别聚类
+            target_weight=0.5,  # 超级锚点策略：降低权重，向量注入的权重15.0是主要约束
             target_metric='categorical',
             random_state=42,
-            n_jobs=1
+            n_jobs=1,
+            verbose=True  # 显示详细进度信息
         )
         
         print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
+        print("   [提示] UMAP 会显示详细的计算进度信息")
         sys.stdout.flush()
-        coords_2d = reducer.fit_transform(embeddings, y=targets_encoded)
-        print("   [进度] UMAP 计算完成")
+        
+        # 记录开始时间
+        umap_start = time.time()
+        # 使用注入后的混合向量（X_combined）替代原始embeddings
+        coords_2d = reducer.fit_transform(X_combined, y=targets_encoded)
+        umap_elapsed = time.time() - umap_start
+        
+        print(f"   ✅ UMAP 计算完成（耗时 {umap_elapsed:.1f} 秒）")
         sys.stdout.flush()
         
         # 归一化

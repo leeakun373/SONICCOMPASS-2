@@ -3,7 +3,7 @@
 包含数据处理、搜索、向量引擎和 UCS 管理
 """
 
-from .data_processor import DataProcessor
+from .data_processor import DataProcessor, inject_category_vectors
 from .search_core import SearchCore
 from .vector_engine import VectorEngine
 from .ucs_manager import UCSManager
@@ -11,6 +11,7 @@ from .category_color_mapper import CategoryColorMapper
 
 __all__ = [
     'DataProcessor',
+    'inject_category_vectors',
     'SearchCore',
     'VectorEngine',
     'UCSManager',

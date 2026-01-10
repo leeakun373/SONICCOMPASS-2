@@ -33,7 +33,7 @@ except ImportError:
     sys.exit(1)
 
 from data import SoundminerImporter
-from core import DataProcessor, VectorEngine
+from core import DataProcessor, VectorEngine, inject_category_vectors
 
 
 def recalculate_umap():
@@ -83,6 +83,11 @@ def recalculate_umap():
         vector_engine=vector_engine,
         cache_dir=CACHE_DIR
     )
+    # 【修复】确保 processor 有 ucs_manager（如果 importer 有的话）
+    if hasattr(importer, 'ucs_manager') and importer.ucs_manager:
+        processor.ucs_manager = importer.ucs_manager
+    elif 'ucs_manager' in locals():
+        processor.ucs_manager = ucs_manager
     print("   ✅ 初始化完成")
     
     # 3. 检查缓存是否存在
@@ -104,26 +109,100 @@ def recalculate_umap():
         print("   请先运行: python rebuild_atlas.py")
         sys.exit(1)
     
-    # 5. Phase 3.5: 提取仲裁后的 Category 并编码为标签
-    print("\n🏷️  提取 Category 标签（使用仲裁后的 Category）...")
+    # 5. Phase 3.5: 提取主类别标签（关键：从 CatID 映射到主类别名称）
+    print("\n🏷️  提取主类别标签（从 CatID 映射到主类别名称）...")
     
-    categories = []
+    # 确保 ucs_manager 已初始化
+    if not processor.ucs_manager:
+        print("   [警告] UCSManager 未初始化，尝试重新加载...")
+        try:
+            from core import UCSManager
+            processor.ucs_manager = UCSManager()
+            processor.ucs_manager.load_all()
+            print("   ✅ UCSManager 初始化成功")
+        except Exception as e:
+            print(f"   [错误] UCSManager 初始化失败: {e}")
+            print("   将使用 CatID 作为标签（可能产生 600+ 个类别）")
+    
+    targets = []
+    missing_count = 0
+    
     for meta in metadata:
-        # Phase 3.5: 直接使用仲裁后的 Category（已在 data_processor 中保存）
-        category = meta.get('category', 'UNCATEGORIZED')
-        if not category or category == '':
-            category = "UNCATEGORIZED"
-        categories.append(category)
+        # metadata 的 'category' 字段存储的是 CatID（如 "AMBFORST"）
+        raw_cat = meta.get('category', '') if isinstance(meta, dict) else getattr(meta, 'category', '')
+        
+        if not raw_cat or raw_cat == '' or raw_cat == 'UNCATEGORIZED':
+            # 缺失类别：标记为 "UNCATEGORIZED"，后续将编码为 -1
+            targets.append("UNCATEGORIZED")
+            missing_count += 1
+            continue
+        
+        # 【关键修复】使用 UCSManager 将 CatID 映射到主类别名称
+        # 例如："AMBFORST" -> "AMBIENCE", "WPNGUN" -> "WEAPONS"
+        if processor.ucs_manager:
+            target_label = processor.ucs_manager.get_main_category_by_id(raw_cat)
+        else:
+            target_label = "UNCATEGORIZED"
+        
+        # 验证：如果映射结果为 "UNCATEGORIZED"，标记为缺失
+        if target_label == "UNCATEGORIZED":
+            targets.append("UNCATEGORIZED")
+            missing_count += 1
+        else:
+            targets.append(target_label)  # 列表里是 [AMBIENCE, AMBIENCE, WEAPONS, WEAPONS, ...]
+    
+    # 【超级锚点策略】保存原始字符串列表（避免-1陷阱）
+    targets_original = targets.copy()  # 保存字符串列表，用于向量注入
     
     # 使用 LabelEncoder 编码为整数数组
+    # 将 "UNCATEGORIZED" 标记为特殊值，编码后再替换为 -1
     label_encoder = LabelEncoder()
-    targets = label_encoder.fit_transform(categories)
+    targets_encoded = label_encoder.fit_transform(targets)
     
-    print(f"   发现 {len(label_encoder.classes_)} 个 Category")
+    # 将 "UNCATEGORIZED" 的标签替换为 -1
+    uncategorized_label_idx = None
+    for i, cls in enumerate(label_encoder.classes_):
+        if cls == 'UNCATEGORIZED':
+            uncategorized_label_idx = i
+            break
     
-    # 6. Phase 3.5: 计算 Supervised UMAP 坐标（使用极强监督参数）
-    print("\n🗺️  计算 Supervised UMAP 坐标（Phase 3.5 极强监督参数）...")
-    print("   参数: target_weight=0.95 (铁腕统治), n_neighbors=50, min_dist=0.001, spread=0.5 (大陆板块)")
+    if uncategorized_label_idx is not None:
+        targets_encoded[targets_encoded == uncategorized_label_idx] = -1
+    
+    # 验证打印：检查唯一主类别数量
+    unique_cats = set([t for t in targets if t != 'UNCATEGORIZED'])
+    print(f"   发现 {len(unique_cats)} 个唯一主类别（应该是约 82 个）")
+    if len(unique_cats) > 100:
+        print(f"   ⚠️  [警告] 唯一类别数过多 ({len(unique_cats)})，可能仍在使用 CatID 而非主类别名称")
+        print(f"   前20个类别: {list(sorted(unique_cats))[:20]}")
+    elif len(unique_cats) < 5:
+        print(f"   ⚠️  [警告] 分类过少 ({len(unique_cats)})，请检查 UCSManager 映射逻辑")
+    else:
+        print(f"   ✅ 主类别数量正常: {len(unique_cats)} 个")
+        print(f"   示例类别: {list(sorted(unique_cats))[:10]}")
+    
+    if missing_count > 0:
+        print(f"   [统计] 缺失类别数量: {missing_count} (已标记为 -1)")
+    
+    # 使用编码后的 targets（用于UMAP监督学习）
+    targets = targets_encoded
+    
+    # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+    print("\n⚓ 正在实施超级锚点策略 (Super-Anchor Strategy)...")
+    print("   强制同一主类别的数据聚集，解决'大陆漂移'问题...")
+    X_combined, _ = inject_category_vectors(
+        embeddings=embeddings,
+        target_labels=targets_original,  # 使用原始字符串列表，避免-1陷阱
+        audio_weight=1.0,
+        category_weight=15.0  # 强力胶水：15.0的权重足以压倒音频特征差异
+    )
+    print(f"   ✅ 向量注入完成: {embeddings.shape} -> {X_combined.shape}")
+    print(f"   音频权重: 1.0, 类别锚点权重: 15.0")
+    
+    # 6. Phase 3.5: 计算 Supervised UMAP 坐标（使用超级锚点策略）
+    print("\n🗺️  计算 Supervised UMAP 坐标（使用超级锚点策略）...")
+    print(f"   数据量: {len(embeddings)} 条，混合向量维度: {X_combined.shape[1]}")
+    print(f"   标签数量: {len(set(targets_original)) - (1 if 'UNCATEGORIZED' in targets_original else 0)} 个唯一类别")
     print("   ⏳ 这可能需要几分钟，请耐心等待...")
     import sys
     sys.stdout.flush()  # 强制刷新输出
@@ -132,19 +211,184 @@ def recalculate_umap():
     
     try:
         reducer = umap.UMAP(
-            n_components=2,
-            n_neighbors=50,       # 从30提升到50 (吸附更多周围的点)
-            min_dist=0.001,       # 从0.01降低到0.001 (允许极度紧密)
-            spread=0.5,           # 降低扩散 (默认1.0)，让群岛聚拢
-            metric='cosine',
-            target_weight=0.95,   # 【关键】提升到 0.95，实施铁腕统治
-            target_metric='categorical',
-            random_state=42,
-            n_jobs=1
+            # === 基础参数 ===
+            n_components=2,      # 输出维度：2D 坐标（用于可视化）
+                                 # 范围：≥ 1（通常为 2 或 3）
+                                 # 推荐：2（2D可视化）或 3（3D可视化）
+            
+            # === 局部结构参数 ===
+            n_neighbors=80,      # 局部邻居数量：控制每个点考虑多少个最近邻
+                                 # 范围：2 到 min(200, 数据量-1)
+                                 # 推荐：5-50（小数据集），15-100（大数据集）
+                                 # 值越大：保留更多全局结构，形成更大的"大陆"
+                                 # 值越小：保留更多局部细节，形成更多"小岛"
+                                 # 从30提升到50：让同一主类别的点更紧密聚集
+            
+            min_dist=0.05,       # 最小距离：控制点之间的最小间距（超级锚点策略：降低以允许紧密堆积）
+                                 # 范围：0.0 到 1.0
+                                 # 推荐：0.0-0.1（紧密），0.1-0.5（中等），0.5-1.0（分散）
+                                 # 值越小：点可以更紧密堆积，形成密集的"大陆"
+                                 # 值越大：点之间强制保持距离，形成分散的"群岛"
+                                 # 超级锚点策略：0.05允许同类数据紧密聚集，但不过于重叠
+            
+            spread=0.5,           # 扩散参数：控制点之间的平均距离
+                                 # 范围：0.1 到 3.0（理论上无上限，但通常 < 3.0）
+                                 # 推荐：0.3-1.0（紧凑），1.0-2.0（中等），2.0-3.0（分散）
+                                 # 值越小：点更紧密，形成紧凑的"大陆"
+                                 # 值越大：点更分散，形成广阔的"海洋"
+                                 # 降低到0.5：让群岛聚拢，减少空白区域
+            
+            # === 距离度量 ===
+            metric='cosine',      # 距离度量方式：使用余弦相似度
+                                 # 可选值：'euclidean', 'manhattan', 'chebyshev', 'minkowski',
+                                 #         'cosine', 'hamming', 'jaccard', 'haversine' 等
+                                 # 推荐：'cosine'（高维向量/文本嵌入），'euclidean'（低维数据）
+                                 # 适合高维向量（如文本嵌入），关注方向而非距离
+            
+            # === 监督学习参数（关键）===
+            target_weight=0.5,   # 监督权重：控制标签（主类别）对布局的影响程度（超级锚点策略：降低权重）
+                                 # 范围：0.0 到 1.0
+                                 # 推荐：0.0（无监督），0.3-0.7（弱监督），0.7-1.0（强监督）
+                                 # 超级锚点策略：由于向量注入已经很强，这里降低权重到0.5作为辅助
+                                 # 向量注入的权重15.0是主要约束，这里的target_weight作为辅助监督
+            
+            target_metric='categorical',  # 标签类型：分类标签（主类别名称）
+                                          # 可选值：'categorical'（离散类别），'continuous'（连续值）
+                                          # 推荐：'categorical'（主类别名称），'continuous'（数值标签）
+                                          # 告诉 UMAP 这些是离散的类别，不是连续值
+            
+            # === 其他参数 ===
+            random_state=42,      # 随机种子：确保每次运行结果一致（可复现）
+                                 # 范围：任意整数（None = 随机）
+                                 # 推荐：固定值（如 42）用于可复现，None 用于每次不同结果
+            
+            n_jobs=1,             # 并行任务数：控制 CPU 核心使用
+                                 # 范围：-1（全部核心），1（单线程），2-N（指定核心数）
+                                 # 推荐：1（避免内存溢出），-1（大数据集且内存充足）
+                                 # 1 = 单线程（避免内存溢出），-1 = 使用所有核心
+            
+            verbose=True          # 详细输出：显示 UMAP 计算过程的进度信息
+                                 # 可选值：True（显示进度），False（静默）
+                                 # 推荐：True（长时间计算时可以看到进度）
         )
-        print("   [进度] 正在运行 UMAP fit_transform...")
+        print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
+        print(f"   [信息] 数据量: {len(embeddings)} 条，向量维度: {embeddings.shape[1]}")
+        if isinstance(targets, (list, np.ndarray)):
+            unique_labels = len(set(targets)) if len(targets) < 100000 else "大量"
+            print(f"   [信息] 标签数量: {unique_labels} 个唯一类别")
+        print("   [提示] UMAP verbose 输出会显示在标准错误流（stderr）中")
+        print("   [提示] 如果长时间无输出，UMAP 可能正在计算中，请耐心等待...")
+        print("   [开始] 开始计算 UMAP...")
         sys.stdout.flush()
-        coords_2d = reducer.fit_transform(embeddings, y=targets)
+        sys.stderr.flush()  # 也刷新 stderr，因为 UMAP 的 verbose 输出到 stderr
+        
+        # 记录开始时间
+        umap_start = time.time()
+        start_time_str = time.strftime('%H:%M:%S')
+        print(f"   [时间] 开始时间: {start_time_str}")
+        sys.stdout.flush()
+        
+        try:
+            # 【修复】检查 targets 格式
+            print(f"   [检查] targets 类型: {type(targets)}, 长度: {len(targets) if hasattr(targets, '__len__') else 'N/A'}")
+            if isinstance(targets, np.ndarray):
+                print(f"   [检查] targets 形状: {targets.shape}, dtype: {targets.dtype}")
+                print(f"   [检查] targets 范围: min={targets.min()}, max={targets.max()}")
+                nan_targets = np.sum(~np.isfinite(targets))
+                if nan_targets > 0:
+                    print(f"   ⚠️  [警告] targets 包含 {nan_targets} 个无效值")
+            elif isinstance(targets, list):
+                unique_targets = len(set(targets))
+                print(f"   [检查] targets 唯一值数量: {unique_targets}")
+            
+            # 【修复】确保 targets 是 numpy 数组
+            if not isinstance(targets, np.ndarray):
+                targets = np.array(targets)
+            
+            # 【修复】检查 embeddings
+            print(f"   [检查] embeddings 形状: {embeddings.shape}, dtype: {embeddings.dtype}")
+            nan_embeddings = np.sum(~np.isfinite(embeddings))
+            if nan_embeddings > 0:
+                print(f"   ⚠️  [警告] embeddings 包含 {nan_embeddings} 个无效值")
+            
+            sys.stdout.flush()
+            
+            # UMAP 的 verbose 输出会到 stderr，所以我们需要确保 stderr 也被刷新
+            print("   [开始] 调用 UMAP fit_transform...")
+            print(f"   [参数] n_neighbors={reducer.n_neighbors}, target_weight={reducer.target_weight}")
+            print("   [提示] UMAP 计算可能需要 5-10 分钟（大数据集），请耐心等待...")
+            print("   [提示] 每 30 秒会输出一次心跳，证明程序仍在运行")
+            print("   [提示] UMAP 的详细进度会显示在 stderr 中（可能不会立即显示）")
+            print("   [提示] 如果超过 15 分钟无响应，可以按 Ctrl+C 中断，然后降低 n_neighbors 参数（如改为 50）")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            
+            # 在后台线程中定期输出心跳（防止看起来卡住）
+            import threading
+            import time as time_module
+            heartbeat_running = [True]
+            
+            def heartbeat():
+                """定期输出心跳，证明程序还在运行"""
+                count = 0
+                while heartbeat_running[0]:
+                    time_module.sleep(30)  # 每30秒输出一次
+                    if heartbeat_running[0]:
+                        count += 1
+                        elapsed = time_module.time() - umap_start
+                        print(f"   [心跳 #{count}] 仍在计算中... 已耗时 {elapsed/60:.1f} 分钟", flush=True)
+                        sys.stdout.flush()
+            
+            heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
+            heartbeat_thread.start()
+            
+            try:
+                # 使用注入后的混合向量（X_combined）替代原始embeddings
+                coords_2d = reducer.fit_transform(X_combined, y=targets)
+            finally:
+                heartbeat_running[0] = False
+        except Exception as e:
+            print(f"   ❌ UMAP 计算出错: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+        
+        umap_elapsed = time.time() - umap_start
+        end_time_str = time.strftime('%H:%M:%S')
+        print(f"   ✅ UMAP 计算完成")
+        print(f"   [时间] 结束时间: {end_time_str}，耗时: {umap_elapsed:.1f} 秒 ({umap_elapsed/60:.1f} 分钟)")
+        
+        # 【修复】检查 UMAP 返回的坐标是否有效
+        print(f"   [检查] UMAP 返回坐标形状: {coords_2d.shape}")
+        print(f"   [检查] 坐标范围（归一化前）: min={coords_2d.min(axis=0)}, max={coords_2d.max(axis=0)}")
+        
+        # 检查是否有 NaN 或 Inf
+        nan_count = np.sum(~np.isfinite(coords_2d))
+        if nan_count > 0:
+            print(f"   ⚠️  [警告] UMAP 返回的坐标包含 {nan_count} 个无效值（NaN/Inf）")
+            nan_indices = np.where(~np.isfinite(coords_2d).any(axis=1))[0]
+            print(f"   [调试] 无效值位置（前10个）: {nan_indices[:10]}")
+            
+            # 【改进修复】不是简单替换为 0，而是使用有效坐标的均值或随机分布
+            valid_mask = np.isfinite(coords_2d).all(axis=1)
+            if np.sum(valid_mask) > 0:
+                # 使用有效坐标的中心点作为默认位置
+                valid_coords = coords_2d[valid_mask]
+                center = valid_coords.mean(axis=0)
+                std = valid_coords.std(axis=0)
+                
+                # 为 NaN 点生成随机位置（在有效坐标范围内）
+                for idx in nan_indices:
+                    # 在中心附近随机分布，避免全部聚集在原点
+                    coords_2d[idx] = center + np.random.normal(0, std * 0.1, size=2)
+                
+                print(f"   [修复] 已将 {nan_count} 个 NaN/Inf 替换为有效坐标范围内的随机位置")
+            else:
+                # 如果全部无效，使用默认值
+                coords_2d = np.nan_to_num(coords_2d, nan=0.0, posinf=0.0, neginf=0.0)
+                print(f"   [修复] 所有坐标都无效，已替换为 0")
+        
+        sys.stdout.flush()
     except Exception as e:
         print(f"   ❌ UMAP 计算失败: {e}")
         import traceback
@@ -152,10 +396,46 @@ def recalculate_umap():
         sys.exit(1)
     
     # 坐标归一化到 0-3000 范围
+    print("   [归一化] 开始归一化坐标...")
+    sys.stdout.flush()
+    
     min_coords = coords_2d.min(axis=0)
     max_coords = coords_2d.max(axis=0)
-    scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
-    coords_2d = (coords_2d - min_coords) * scale
+    coord_range = max_coords - min_coords
+    
+    print(f"   [归一化] 坐标范围: min={min_coords}, max={max_coords}, range={coord_range}")
+    
+    # 检查范围是否有效
+    if np.any(~np.isfinite(min_coords)) or np.any(~np.isfinite(max_coords)):
+        print(f"   ❌ [错误] 坐标范围包含无效值，无法归一化")
+        print(f"   [调试] min_coords: {min_coords}, max_coords: {max_coords}")
+        sys.exit(1)
+    
+    if np.any(coord_range <= 0) or not np.isfinite(np.max(coord_range)):
+        print(f"   ⚠️  [警告] 坐标范围异常: {coord_range}")
+        print(f"   [修复] 使用默认范围进行归一化")
+        # 如果范围异常，使用默认范围
+        scale = 3000.0
+        coords_2d = (coords_2d - coords_2d.mean(axis=0)) * scale / (coords_2d.std(axis=0) + 1e-5)
+    else:
+        # 【改进】使用相同的缩放因子，保持纵横比，但确保两个轴都填满 0-3000 范围
+        # 方法：使用最大范围作为基准，然后分别缩放两个轴
+        max_range = np.max(coord_range)
+        scale_x = 3000.0 / coord_range[0] if coord_range[0] > 0 else 3000.0 / max_range
+        scale_y = 3000.0 / coord_range[1] if coord_range[1] > 0 else 3000.0 / max_range
+        
+        # 归一化到 0-3000
+        coords_2d[:, 0] = (coords_2d[:, 0] - min_coords[0]) * scale_x
+        coords_2d[:, 1] = (coords_2d[:, 1] - min_coords[1]) * scale_y
+    
+    # 再次检查归一化后的坐标
+    print(f"   [归一化] 归一化后坐标范围: min={coords_2d.min(axis=0)}, max={coords_2d.max(axis=0)}")
+    nan_count_after = np.sum(~np.isfinite(coords_2d))
+    if nan_count_after > 0:
+        print(f"   ❌ [错误] 归一化后仍有 {nan_count_after} 个无效值")
+        sys.exit(1)
+    
+    sys.stdout.flush()
     
     # 保存坐标
     processor.save_coordinates(coords_2d)

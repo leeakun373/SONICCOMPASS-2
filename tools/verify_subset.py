@@ -21,7 +21,7 @@ if sys.platform == 'win32':
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data import SoundminerImporter
-from core import DataProcessor, VectorEngine, UCSManager
+from core import DataProcessor, VectorEngine, UCSManager, inject_category_vectors
 import umap
 
 
@@ -198,15 +198,82 @@ def classify_data(processor: DataProcessor, metadata_list: List[Dict]) -> List[D
     return classified
 
 
+def _generate_lod0_labels(
+    categories: Dict[str, Dict],
+    coordinates: np.ndarray,
+    metadata_list: List[Dict],
+    min_cluster_size: int = 5
+) -> List[Tuple[str, Tuple[float, float], int]]:
+    """
+    生成 LOD 0 标签（主类别区域标注）
+    类似于软件中的连通域分析，找到同一主类别的聚集区域并标注
+    
+    Args:
+        categories: 按主类别分组的数据字典
+        coordinates: 所有点的坐标
+        metadata_list: 元数据列表
+        min_cluster_size: 最小聚类大小（少于这个数量的区域不标注）
+    
+    Returns:
+        标签列表，每个元素是 (标签文本, 中心坐标(x, y), 点数量)
+    """
+    from sklearn.cluster import DBSCAN
+    
+    labels = []
+    
+    for main_cat, data in categories.items():
+        if main_cat == 'UNCATEGORIZED':
+            continue
+        
+        coords = np.array(data['coords'])
+        if len(coords) < min_cluster_size:
+            continue
+        
+        # 使用 DBSCAN 找到聚集的区域
+        # eps: 聚类半径（根据坐标范围自适应调整）
+        coord_range = coordinates.max(axis=0) - coordinates.min(axis=0)
+        avg_range = np.mean(coord_range)
+        eps = avg_range * 0.1  # 使用坐标范围的10%作为聚类半径
+        
+        clustering = DBSCAN(eps=eps, min_samples=min_cluster_size).fit(coords)
+        
+        # 为每个聚类找到中心并生成标签
+        unique_labels = set(clustering.labels_)
+        unique_labels.discard(-1)  # 移除噪声点
+        
+        for cluster_id in unique_labels:
+            cluster_mask = clustering.labels_ == cluster_id
+            cluster_coords = coords[cluster_mask]
+            
+            if len(cluster_coords) >= min_cluster_size:
+                # 计算聚类中心
+                center = cluster_coords.mean(axis=0)
+                labels.append((main_cat, (center[0], center[1]), len(cluster_coords)))
+    
+    # 如果 DBSCAN 没有找到足够的聚类，使用简单的中心点方法
+    if len(labels) == 0:
+        for main_cat, data in categories.items():
+            if main_cat == 'UNCATEGORIZED':
+                continue
+            
+            coords = np.array(data['coords'])
+            if len(coords) >= min_cluster_size:
+                center = coords.mean(axis=0)
+                labels.append((main_cat, (center[0], center[1]), len(coords)))
+    
+    return labels
+
+
 def visualize_results(
     metadata_list: List[Dict],
     embeddings: np.ndarray,
     output_path: Path,
     keyword: str,
-    processor: DataProcessor
+    processor: DataProcessor,
+    show_lod0_labels: bool = True
 ):
     """
-    使用 matplotlib 生成散点图
+    使用 matplotlib 生成散点图，支持 LOD 0 标签标注
     
     【UMAP 坐标说明】
     - X轴（UMAP 维度 1）: 降维后的第一个维度，表示数据在语义空间中的位置
@@ -220,6 +287,7 @@ def visualize_results(
         output_path: 输出图片路径
         keyword: 搜索关键词（用于标题）
         processor: DataProcessor 实例（用于获取 UCSManager）
+        show_lod0_labels: 是否显示 LOD 0 标签（主类别区域标注）
     """
     # 计算 UMAP 降维（2D）
     print(f"[可视化] 计算 UMAP 降维...")
@@ -227,27 +295,55 @@ def visualize_results(
     print(f"  - X轴: 降维后的第一个维度（语义空间位置）")
     print(f"  - Y轴: 降维后的第二个维度（语义空间位置）")
     print(f"  - 同一主类别的数据应该在坐标上聚集（形成'大陆'）")
-    
-    reducer = umap.UMAP(
-        n_components=2,
-        n_neighbors=15,
-        min_dist=0.1,
-        random_state=42
-    )
+    if len(metadata_list) > 5000:
+        print(f"[提示] 数据量较大（{len(metadata_list)} 条），UMAP 计算可能需要几分钟，请耐心等待...")
     
     # 提取标签用于监督学习（使用主类别）
     targets = []
     for meta in metadata_list:
         main_cat = meta.get('main_category', 'UNCATEGORIZED')
-        targets.append(main_cat if main_cat != "UNCATEGORIZED" else None)
+        targets.append(main_cat if main_cat != "UNCATEGORIZED" else "UNCATEGORIZED")
+    
+    # 【超级锚点策略】保存原始字符串列表（用于向量注入）
+    targets_original = targets.copy()  # 保存字符串列表，避免None
+    
+    # 使用更强的监督参数（与主流程一致）
+    use_supervised = len(metadata_list) > 100 and any(t != "UNCATEGORIZED" and t is not None for t in targets)
+    
+    # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+    if use_supervised and len(metadata_list) > 50:  # 小数据集可以跳过，避免过度约束
+        print(f"[可视化] 应用超级锚点策略（数据量: {len(metadata_list)}）...")
+        # 根据数据量自适应调整权重（小数据集用较小权重）
+        category_weight = 10.0 if len(metadata_list) < 500 else 15.0
+        X_combined, _ = inject_category_vectors(
+            embeddings=embeddings,
+            target_labels=targets_original,
+            audio_weight=1.0,
+            category_weight=category_weight
+        )
+        print(f"[可视化] 向量注入完成: {embeddings.shape} -> {X_combined.shape} (权重: {category_weight})")
+        embeddings = X_combined  # 使用混合向量替代原始embeddings
+    else:
+        print(f"[可视化] 跳过超级锚点策略（数据量: {len(metadata_list)}）...")
+    
+    reducer = umap.UMAP(
+        n_components=2,
+        n_neighbors=min(80, len(embeddings) - 1) if len(embeddings) > 1 else 15,
+        min_dist=0.05 if use_supervised and len(metadata_list) > 50 else 0.1,  # 超级锚点策略：降低以允许紧密堆积
+        spread=0.5,
+        metric='cosine',
+        random_state=42,
+        target_weight=0.5 if use_supervised else None,  # 超级锚点策略：降低权重，向量注入是主要约束
+        target_metric='categorical' if use_supervised else None
+    )
     
     # 如果有标签，使用监督 UMAP
-    if any(t is not None for t in targets):
+    if use_supervised:
         from sklearn.preprocessing import LabelEncoder
         le = LabelEncoder()
         encoded_targets = []
-        for t in targets:
-            if t is None:
+        for t in targets_original:
+            if t == "UNCATEGORIZED" or t is None:
                 encoded_targets.append(-1)
             else:
                 encoded_targets.append(t)
@@ -256,7 +352,8 @@ def visualize_results(
         if len(unique_targets) > 1:
             le.fit(unique_targets)
             encoded = [le.transform([t])[0] if t != -1 else -1 for t in encoded_targets]
-            coordinates = reducer.fit_transform(embeddings, y=encoded)
+            encoded = np.array(encoded)
+            coordinates = reducer.fit_transform(embeddings, y=encoded)  # embeddings已经是X_combined（如果应用了超级锚点）
         else:
             coordinates = reducer.fit_transform(embeddings)
     else:
@@ -313,7 +410,34 @@ def visualize_results(
             c=[colors[label]]
         )
     
-    plt.title(f'分类验证结果 - 关键词: "{keyword}"\n共 {len(metadata_list)} 条数据', fontsize=14, fontweight='bold')
+    # 【新增】LOD 0 标签标注（主类别区域标注）
+    if show_lod0_labels:
+        print(f"[可视化] 生成 LOD 0 标签（主类别区域标注）...")
+        lod0_labels = _generate_lod0_labels(categories, coordinates, metadata_list, min_cluster_size=max(5, len(metadata_list) // 100))
+        
+        for label_text, (x, y), count in lod0_labels:
+            # 绘制白色半透明背景（增强可读性）
+            plt.text(
+                x, y, label_text,
+                fontsize=14,
+                fontweight='bold',
+                color='white',
+                ha='center',
+                va='center',
+                bbox=dict(
+                    boxstyle='round,pad=0.5',
+                    facecolor='black',
+                    alpha=0.6,
+                    edgecolor='white',
+                    linewidth=1.5
+                ),
+                zorder=100  # 确保标签在最上层
+            )
+        
+        print(f"[可视化] 已标注 {len(lod0_labels)} 个主类别区域")
+    
+    plt.title(f'分类验证结果 - 关键词: "{keyword}"\n共 {len(metadata_list)} 条数据' + (' (含LOD0标签)' if show_lod0_labels else ''), 
+              fontsize=14, fontweight='bold')
     plt.xlabel('UMAP Dimension 1 (X-axis)', fontsize=12)
     plt.ylabel('UMAP Dimension 2 (Y-axis)', fontsize=12)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
@@ -432,17 +556,89 @@ def export_to_csv(metadata_list: List[Dict], output_dir: Path, keyword: str, tim
     print(f"       可以用 Excel 打开，查看详细数据和坐标分布")
 
 
+def query_all_data(importer: SoundminerImporter, limit: int = 10000) -> List[Dict]:
+    """
+    从数据库查询所有数据（全库模式）
+    
+    Args:
+        importer: SoundminerImporter 实例
+        limit: 最大返回数量（避免数据过多）
+    
+    Returns:
+        元数据字典列表
+    """
+    importer._connect()
+    
+    # 【修复】确保表名已检测
+    if importer.table_name is None:
+        importer.table_name = importer._detect_table_name()
+        importer.field_mapping = importer.FIELD_MAPPINGS.get(importer.table_name, {})
+    
+    cursor = importer.conn.cursor()
+    table_name = importer.table_name
+    
+    # 查询所有数据
+    query = f"SELECT * FROM {table_name} LIMIT ?"
+    cursor.execute(query, (limit,))
+    
+    rows = cursor.fetchall()
+    all_columns = [desc[0] for desc in cursor.description]
+    
+    # 转换为字典列表
+    results = []
+    for row in rows:
+        row_dict = dict(zip(all_columns, row))
+        
+        # 构建 rich_context_text
+        rich_text = importer._build_rich_context_text(row, all_columns)
+        row_dict['rich_context_text'] = rich_text
+        row_dict['semantic_text'] = rich_text
+        
+        # 确保必要字段存在
+        if 'filename' not in row_dict or not row_dict.get('filename'):
+            for col in all_columns:
+                if col.lower() == 'filename':
+                    row_dict['filename'] = row_dict.get(col, 'Unknown')
+                    break
+            else:
+                row_dict['filename'] = row_dict.get(all_columns[0] if all_columns else 'Unknown', 'Unknown')
+        
+        if 'category' not in row_dict:
+            for col in all_columns:
+                if col.lower() == 'category':
+                    row_dict['category'] = row_dict.get(col, '')
+                    break
+            else:
+                row_dict['category'] = ''
+        
+        results.append(row_dict)
+    
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description='微缩验证工具 - 快速验证分类效果')
-    parser.add_argument('keyword', type=str, help='搜索关键词（如 AIR, WEAPON, VEHICLE）')
-    parser.add_argument('--limit', type=int, default=500, help='最大返回数量（默认 500）')
+    parser.add_argument('keyword', type=str, nargs='?', default=None, help='搜索关键词（如 AIR, WEAPON, VEHICLE），可选')
+    parser.add_argument('--all', '--full-db', action='store_true', dest='full_db', help='全库模式：处理整个数据库（不使用关键词）')
+    parser.add_argument('--limit', type=int, default=500, help='最大返回数量（默认 500，全库模式默认 10000）')
     parser.add_argument('--db', type=str, default=None, help='数据库路径（默认从配置文件读取）')
     parser.add_argument('--output', type=str, default=None, help='输出图片路径（可选，默认自动生成）')
+    parser.add_argument('--no-lod0', action='store_true', dest='no_lod0', help='禁用 LOD 0 标签标注')
     
     args = parser.parse_args()
     
-    keyword = args.keyword.upper()
-    limit = args.limit
+    # 全库模式：不需要关键词
+    if args.full_db:
+        keyword = "ALL"
+        limit = max(args.limit, 1000)  # 全库模式至少1000条
+        print(f"[模式] 全库模式：将处理最多 {limit} 条数据")
+    elif args.keyword:
+        keyword = args.keyword.upper()
+        limit = args.limit
+    else:
+        print("❌ 错误：请指定搜索关键词或使用 --all 参数进行全库模式")
+        parser.print_help()
+        sys.exit(1)
     
     # 【新增】从配置文件读取数据库路径（如果用户未指定）
     if args.db:
@@ -480,12 +676,16 @@ def main():
         output_path = output_dir / f"verify_{keyword}_{timestamp}.png"
     
     print(f"🔍 微缩验证工具")
-    print(f"关键词: {keyword}")
+    if args.full_db:
+        print(f"模式: 全库模式")
+    else:
+        print(f"关键词: {keyword}")
     print(f"数据库: {db_path}")
     print(f"最大数量: {limit}")
     print(f"输出文件夹: {output_dir}/")
     print(f"输出图片: {output_path.name}")
     print(f"时间戳: {timestamp}")
+    print(f"LOD 0 标签: {'禁用' if args.no_lod0 else '启用'}")
     print()
     
     # 1. 初始化组件
@@ -512,9 +712,17 @@ def main():
     print("✅ 初始化完成")
     
     # 2. 查询数据
-    print(f"\n[步骤 2/5] 查询包含 '{keyword}' 的数据...")
+    if args.full_db:
+        print(f"\n[步骤 2/5] 查询所有数据（全库模式）...")
+    else:
+        print(f"\n[步骤 2/5] 查询包含 '{keyword}' 的数据...")
     start_time = time.time()
-    raw_metadata = query_by_keyword(importer, keyword, limit=limit)
+    
+    if args.full_db:
+        raw_metadata = query_all_data(importer, limit=limit)
+    else:
+        raw_metadata = query_by_keyword(importer, keyword, limit=limit)
+    
     print(f"✅ 查询完成，找到 {len(raw_metadata)} 条数据（耗时 {time.time() - start_time:.2f} 秒）")
     
     if len(raw_metadata) == 0:
@@ -546,7 +754,7 @@ def main():
     
     # 5. 可视化
     print(f"\n[步骤 5/5] 生成可视化...")
-    visualize_results(classified_metadata, embeddings, output_path, keyword, processor)
+    visualize_results(classified_metadata, embeddings, output_path, keyword, processor, show_lod0_labels=not args.no_lod0)
     
     # 6. 打印报告
     print_classification_report(classified_metadata, processor)

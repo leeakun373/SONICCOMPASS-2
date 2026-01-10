@@ -204,7 +204,8 @@ class HexGridLayer(QGraphicsItem):
                     color = mapper.get_color(main_category) or mapper.get_color(mode_cat_id)
                 else:
                     color = mapper.get_color(mode_cat_id)
-                if not color or color == QColor(255, 255, 255):
+                # 【修复】使用 name() 比较颜色值
+                if not color or color.name() == '#ffffff':
                     # 如果颜色获取失败，使用哈希颜色
                     color = self._get_color_safe(mode_cat_id)
             
@@ -271,24 +272,30 @@ class HexGridLayer(QGraphicsItem):
                                     c = mapper.get_color(cid)
                             else:
                                 c = mapper.get_color(cid)
-                            if c and c != QColor(255, 255, 255):
+                            # 【修复】使用 name() 比较颜色值
+                            if c and c.name() != '#ffffff':
                                 color = c
                             else:
                                 # 如果颜色获取失败，使用哈希颜色
                                 color = self._get_color_safe(cid)
                 
-                # 动态字体大小：小岛屿字小，大岛屿字大
+                # 动态字体大小：大幅增加基准大小
+                # 原始逻辑太小，针对高分屏和全局概览需要更大
                 if len(coords) < 3:
-                    font_size = 8
+                    font_size = 12  # 原 8 -> 12
                 elif len(coords) < 10:
-                    font_size = 10
+                    font_size = 16  # 原 10 -> 16
                 else:
-                    font_size = 14
+                    font_size = 24  # 原 14 -> 24
+                
+                # 颜色策略：与 Hex 统一，但为了可读性，大幅提亮
+                # 这样既有"统一感"，又能看清
+                text_color = color.lighter(180)  # 提亮 80%
                 
                 self.category_labels.append({
                     'text': category,  # 显示 Category Name (如 WEAPONS)
                     'pos': center,
-                    'color': color,
+                    'color': text_color,  # 存入提亮后的颜色
                     'area': len(coords),
                     'font_size': font_size
                 })
@@ -302,11 +309,12 @@ class HexGridLayer(QGraphicsItem):
         if not key_str:
             return QColor('#333333')
 
-        # 1. 尝试通过 Mapper 获取官方颜色
+        # 1. 尝试通过 Mapper 获取官方颜色（mapper.get_color 已有哈希兜底）
         mapper = self._get_color_mapper()
         if mapper:
             c = mapper.get_color(key_str)
-            if c and c != QColor('#333333'):  # 确保不是默认灰色
+            # 【修复】使用 name() 方法比较颜色值，而不是对象引用
+            if c and c.name() != '#333333':
                 return c
 
         # 2. Hash 兜底：使用字符串的 Hash 值生成固定颜色
@@ -349,10 +357,10 @@ class HexGridLayer(QGraphicsItem):
             if not clip_rect.intersects(QRectF(center.x() - hex_size, center.y() - hex_size, hex_size*2, hex_size*2)):
                 continue
                 
-            # 颜色逻辑 - 使用 Mode (最频繁) CatID
-            color = QColor('#333333') # 默认深灰
+            # 颜色逻辑修正：强制统一颜色
+            color = QColor('#333333')  # 默认深灰
             if len(indices) > 0:
-                # 获取众数 CatID (现在 metadata['category'] 存储的是 CatID)
+                # 获取众数 CatID
                 cat_ids = []
                 for idx in indices:
                     if idx < len(self.metadata):
@@ -363,12 +371,25 @@ class HexGridLayer(QGraphicsItem):
                 if cat_ids:
                     from collections import Counter
                     mode_cat_id = Counter(cat_ids).most_common(1)[0][0]
-                    # 使用新的 get_color 方法
+                    
+                    # 使用安全的颜色获取方法，确保总是返回有效颜色
+                    color = self._get_color_safe(mode_cat_id)
+                    
+                    # [Critical Fix] 
+                    # 无论 LOD 如何，首先尝试获取 "Main Category" 的颜色
+                    # 确保 LOD1 和 LOD0 视觉统一
                     mapper = self._get_color_mapper()
-                    if mapper:
-                        color = mapper.get_color(mode_cat_id)
-                    else:
-                        color = self._get_color_safe(mode_cat_id)
+                    if mapper and self.ucs_manager:
+                        main_cat = self.ucs_manager.get_main_category_by_id(mode_cat_id)
+                        # 如果找到了主分类 (e.g., "WEAPONS")，优先用主分类取色
+                        if main_cat and main_cat != "UNCATEGORIZED":
+                            main_color = mapper.get_color(main_cat)
+                            # 【修复】使用 name() 比较颜色值，而不是对象引用
+                            if main_color and main_color.name() != '#333333':
+                                color = main_color
+                else:
+                    # 如果没有有效的 cat_ids，使用默认灰色（这是合理的）
+                    pass
             
             # 绘制单个六边形
             self._draw_single_hex(painter, center, len(indices), gap_ratio, color, lod)
@@ -479,11 +500,12 @@ class HexGridLayer(QGraphicsItem):
     
     def _draw_category_labels(self, painter, clip_rect):
         """修复：使用 label 中的 color，智能选择文字颜色确保可读性"""
-        # 字体大小随缩放反向调整，或使用 label 中存储的 font_size
-        base_size = self.hex_size * 1.2
+        # 调整基础字号计算，避免缩放时字太小
+        base_size = self.hex_size * 2.0  # 增大基数
         zoom = max(0.1, self.current_zoom)
-        default_font_size = int(base_size / math.sqrt(zoom))
-        font = QFont("Segoe UI", default_font_size, QFont.Weight.Bold)
+        # 减缓缩放带来的字体缩小速度
+        default_font_size = int(base_size / (math.sqrt(zoom) + 0.5))
+        font = QFont("Segoe UI", default_font_size, QFont.Weight.Black)  # 使用 Black 超粗体
         font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
         painter.setFont(font)
         
@@ -506,29 +528,13 @@ class HexGridLayer(QGraphicsItem):
             x = pos.x() - w / 2
             y = pos.y() + h / 3  # 视觉垂直居中调整
             
-            # 获取 label 中存储的颜色
-            base_color = label.get('color', QColor(255, 255, 255))
-            if not isinstance(base_color, QColor):
-                base_color = QColor(base_color)
+            # 使用 label 中预计算好的统一颜色
+            text_color = label.get('color', QColor(255, 255, 255))
+            if not isinstance(text_color, QColor):
+                text_color = QColor(text_color)
             
-            # 智能颜色策略：根据颜色亮度选择文字颜色
-            # value() 返回 HSV 中的 V（亮度），范围 0-255
-            if base_color.value() < 100:
-                # 颜色太暗，使用白色文字
-                text_color = QColor(255, 255, 255, 255)
-            else:
-                # 颜色足够亮，使用原色或稍微提亮
-                text_color = base_color.lighter(120)  # 提亮 20%
-            
-            # 1. 绘制黑色轮廓（1px 宽度）- 使用多次绘制创建粗轮廓效果
-            outline_pen = QPen(QColor(0, 0, 0, 255), 1.0)
-            outline_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-            painter.setPen(outline_pen)
-            # 绘制多个方向的轮廓以创建粗边效果
-            for dx, dy in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
-                painter.drawText(int(x+dx), int(y+dy), text)
-                
-            # 2. 绘制主体文字（使用智能选择的颜色）
+            # 绘制：去掉复杂的黑色描边，改用简单的投影或直接绘制，保持整洁 (KISS)
+            # 或者保留描边但调细
             painter.setPen(text_color)
             painter.drawText(int(x), int(y), text)
     
@@ -936,11 +942,30 @@ class SonicUniverse(QGraphicsScene):
         if self.coords_2d is None or len(self.coords_2d) == 0:
             return
         
+        # 【修复】过滤 NaN 和 Inf 值
+        valid_mask = np.isfinite(self.coords_2d).all(axis=1)
+        if not valid_mask.all():
+            invalid_count = np.sum(~valid_mask)
+            print(f"[WARNING] 发现 {invalid_count} 个无效坐标（NaN/Inf），将被过滤")
+            self.coords_2d = self.coords_2d[valid_mask]
+            # 同时更新 metadata，确保索引对应
+            if hasattr(self, 'metadata') and len(self.metadata) == len(valid_mask):
+                self.metadata = [self.metadata[i] for i in range(len(valid_mask)) if valid_mask[i]]
+        
+        if len(self.coords_2d) == 0:
+            print("[ERROR] 过滤无效坐标后，没有有效数据")
+            return
+        
         # 1. 坐标归一化到紧凑场景 (3000x3000) - 减少数据分散，让蜂窝更密集
         min_v = np.min(self.coords_2d, axis=0)
         max_v = np.max(self.coords_2d, axis=0)
         scale = 3000.0 / (np.max(max_v - min_v) + 1e-5)
         self.norm_coords = (self.coords_2d - min_v) * scale
+        
+        # 【修复】再次检查归一化后的坐标
+        if np.any(~np.isfinite(self.norm_coords)):
+            print("[ERROR] 归一化后仍有无效坐标，使用默认坐标")
+            self.norm_coords = np.random.rand(len(self.coords_2d), 2) * 3000.0
     
     def _constrain_points_to_hex(self, coords):
         """
@@ -1038,18 +1063,36 @@ class SonicUniverse(QGraphicsScene):
         if hasattr(self, 'scatter_layer'):
             self.scatter_layer.points = None
         
+        # 【修复】过滤 NaN 坐标
+        valid_mask = np.isfinite(norm_coords).all(axis=1)
+        if not valid_mask.all():
+            invalid_count = np.sum(~valid_mask)
+            print(f"[WARNING] 构建网格时发现 {invalid_count} 个无效坐标，将被跳过", flush=True)
+            valid_indices = np.where(valid_mask)[0]
+        else:
+            valid_indices = np.arange(len(norm_coords))
+        
         # 构建网格索引
         print("[DEBUG] build: 构建网格索引...", flush=True)
         sys.stdout.flush()
         grid_map = {}
-        for idx, (x, y) in enumerate(norm_coords):
-            q, r = self._pixel_to_hex(x, y)
-            if (q, r) not in grid_map:
-                grid_map[(q, r)] = []
-            grid_map[(q, r)].append(idx)
+        for array_idx, data_idx in enumerate(valid_indices):
+            x, y = norm_coords[data_idx]
+            # 【修复】再次检查单个坐标
+            if not (np.isfinite(x) and np.isfinite(y)):
+                continue
+            try:
+                q, r = self._pixel_to_hex(x, y)
+                if (q, r) not in grid_map:
+                    grid_map[(q, r)] = []
+                grid_map[(q, r)].append(data_idx)
+            except (ValueError, OverflowError) as e:
+                # 跳过无法转换的坐标
+                print(f"[WARNING] 跳过无效坐标 ({x}, {y}): {e}", flush=True)
+                continue
             # 每处理 5000 条输出一次进度
-            if (idx + 1) % 5000 == 0:
-                print(f"[DEBUG] build: 已处理 {idx + 1}/{len(norm_coords)} 个点...", flush=True)
+            if (array_idx + 1) % 5000 == 0:
+                print(f"[DEBUG] build: 已处理 {array_idx + 1}/{len(valid_indices)} 个点...", flush=True)
                 sys.stdout.flush()
         
         print(f"[DEBUG] build: grid_map={len(grid_map)}", flush=True)
@@ -1136,6 +1179,10 @@ class SonicUniverse(QGraphicsScene):
         super().mousePressEvent(event)
     
     def _pixel_to_hex(self, x, y):
+        # 【修复】检查输入是否为有效数值
+        if not (np.isfinite(x) and np.isfinite(y)):
+            return 0, 0  # 返回默认六边形坐标
+        
         size = self.hex_size
         q = (2./3 * x) / size
         r = (-1./3 * x + math.sqrt(3)/3 * y) / size
@@ -1149,6 +1196,11 @@ class SonicUniverse(QGraphicsScene):
         return QPointF(x, y)
 
     def _hex_round(self, q, r):
+        # 【修复】检查 NaN 和 Inf
+        if not (np.isfinite(q) and np.isfinite(r)):
+            # 返回一个默认的六边形坐标（原点）
+            return 0, 0
+        
         # 轴向坐标四舍五入算法
         s = -q - r
         rq, rr, rs = round(q), round(r), round(s)

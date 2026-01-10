@@ -479,10 +479,25 @@ class DataProcessor(QObject):
         加载预计算的 UMAP 坐标
         
         Returns:
-            2D 坐标矩阵，如果不存在则返回 None
+            2D 坐标矩阵，如果不存在或全部无效则返回 None
         """
         if self.coordinates_cache_path.exists():
-            return np.load(self.coordinates_cache_path)
+            coords = np.load(self.coordinates_cache_path)
+            # 【修复】检查坐标有效性
+            valid_mask = np.isfinite(coords).all(axis=1)
+            valid_count = np.sum(valid_mask)
+            
+            if valid_count == 0:
+                # 全部无效，删除损坏的缓存文件
+                print(f"[ERROR] 坐标文件全部无效（NaN/Inf），将删除并重新计算")
+                self.coordinates_cache_path.unlink()
+                return None
+            elif valid_count < len(coords):
+                # 部分无效，报告但返回（调用方会过滤）
+                invalid_count = len(coords) - valid_count
+                print(f"[WARNING] 加载的坐标包含 {invalid_count} 个无效值（NaN/Inf），{valid_count} 个有效")
+            
+            return coords
         return None
     
     def save_coordinates(self, coordinates: np.ndarray):
@@ -505,3 +520,62 @@ class DataProcessor(QObject):
         if self.coordinates_cache_path.exists():
             self.coordinates_cache_path.unlink()
 
+
+# ============================================================================
+# 超级锚点策略 (Super-Anchor Strategy)
+# ============================================================================
+
+def inject_category_vectors(
+    embeddings: np.ndarray,
+    target_labels: List[str],
+    audio_weight: float = 1.0,
+    category_weight: float = 15.0
+) -> Tuple[np.ndarray, 'OneHotEncoder']:
+    """
+    [架构师优化版] 实施超级锚点策略：将主类别的One-Hot向量注入到音频embedding中
+    
+    通过将主类别的One-Hot向量（高权重）拼接到音频特征向量后面，强制同一主类别的
+    数据在UMAP空间中聚集，解决"大陆漂移"问题（子类"叛逃"到其他大陆）。
+    
+    Args:
+        embeddings: 音频特征向量 (N, 1024)
+        target_labels: 主类别名称列表 (List[str]) - **必须传字符串列表，不能传编码后的整数！**
+        audio_weight: 音频特征权重（默认1.0）
+        category_weight: 类别锚点权重（默认15.0，引力强度）
+    
+    Returns:
+        X_combined: 混合后的特征矩阵 (N, 1024 + num_categories)
+        encoder: 训练好的OneHotEncoder实例（用于后续推理）
+    
+    Note:
+        - 使用字符串列表而非编码后的整数数组，避免-1陷阱（OneHotEncoder不支持负数）
+        - OneHotEncoder会自动处理"UNCATEGORIZED"字符串
+        - 返回的encoder可以用于后续推理时的新数据转换
+    
+    Example:
+        >>> targets = ["ANIMALS", "WEAPONS", "ANIMALS", "UNCATEGORIZED"]
+        >>> X_combined, encoder = inject_category_vectors(embeddings, targets)
+        >>> # 现在 X_combined 的维度是 (4, 1024 + 82)
+        >>> # 所有 ANIMALS 类别的数据会被强制聚集在一起
+    """
+    from sklearn.preprocessing import OneHotEncoder
+    
+    # 1. 数据清洗：确保target_labels是numpy数组且格式正确
+    labels_arr = np.array(target_labels).reshape(-1, 1)
+    
+    # 2. 初始化OneHotEncoder
+    # handle_unknown='ignore' 防止未来推理时遇到没见过的类别报错
+    # sparse_output=False 输出密集矩阵以便拼接
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+    
+    # 3. 生成锚点向量
+    cat_vectors = encoder.fit_transform(labels_arr)
+    
+    # 4. 拼接向量
+    # 确保类型一致(float32)节省内存
+    X_audio = (embeddings * audio_weight).astype(np.float32)
+    X_cat = (cat_vectors * category_weight).astype(np.float32)
+    
+    X_combined = np.hstack([X_audio, X_cat])
+    
+    return X_combined, encoder

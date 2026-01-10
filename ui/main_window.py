@@ -6,6 +6,7 @@ Sonic Compass 主窗口
 import sys
 from pathlib import Path
 from typing import Optional
+import numpy as np
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QLineEdit, QCheckBox, QFrame, QProgressBar,
@@ -17,7 +18,7 @@ from PySide6.QtCore import Qt, QRectF
 from ui.components import CanvasView, SearchBar, InspectorPanel, UniversalTagger
 from ui.visualizer import SonicUniverse
 from ui.styles import GLOBAL_STYLESHEET
-from core import DataProcessor, SearchCore, VectorEngine, UCSManager
+from core import DataProcessor, SearchCore, VectorEngine, UCSManager, inject_category_vectors
 from data import SoundminerImporter, ConfigManager
 
 
@@ -86,10 +87,22 @@ class UMAPRecalcThread(QThread):
                     category = "UNCATEGORIZED"
                 categories.append(category)
             
+            # 【超级锚点策略】保存原始字符串列表（用于向量注入）
+            categories_original = categories.copy()
+            
             # 使用 LabelEncoder 编码
             from sklearn.preprocessing import LabelEncoder
             label_encoder = LabelEncoder()
             targets = label_encoder.fit_transform(categories)
+            
+            # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+            self.progress_signal.emit(45, "Applying Super-Anchor Strategy...")
+            X_combined, _ = inject_category_vectors(
+                embeddings=embeddings,
+                target_labels=categories_original,  # 使用原始字符串列表
+                audio_weight=1.0,
+                category_weight=15.0
+            )
             
             # Supervised UMAP (使用新参数)
             self.progress_signal.emit(50, "Computing UMAP coordinates...")
@@ -99,15 +112,16 @@ class UMAPRecalcThread(QThread):
             reducer = umap.UMAP(
                 n_components=2,
                 n_neighbors=30,  # 从15改为30，增强全局结构
-                min_dist=0.01,   # 从0.1改为0.01，允许紧密堆积
+                min_dist=0.05,   # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
                 spread=1.0,
                 metric='cosine',
-                target_weight=0.7,
+                target_weight=0.5,  # 超级锚点策略：降低权重，向量注入是主要约束
                 target_metric='categorical',
                 random_state=42,
                 n_jobs=1
             )
-            coords_2d = reducer.fit_transform(embeddings, y=targets)
+            # 使用注入后的混合向量（X_combined）替代原始embeddings
+            coords_2d = reducer.fit_transform(X_combined, y=targets)
             
             # 坐标归一化到 0-3000
             min_coords = coords_2d.min(axis=0)
@@ -219,23 +233,36 @@ class AtlasBuilderThread(QThread):
                     category = "UNCATEGORIZED"
                 categories.append(category)
             
+            # 【超级锚点策略】保存原始字符串列表（用于向量注入）
+            categories_original = categories.copy()
+            
             # 使用 LabelEncoder 编码
             label_encoder = LabelEncoder()
             targets = label_encoder.fit_transform(categories)
+            
+            # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+            self.progress_signal.emit(75, "Applying Super-Anchor Strategy...")
+            X_combined, _ = inject_category_vectors(
+                embeddings=embeddings,
+                target_labels=categories_original,  # 使用原始字符串列表
+                audio_weight=1.0,
+                category_weight=15.0
+            )
             
             # Supervised UMAP (更新参数)
             reducer = umap.UMAP(
                 n_components=2,
                 n_neighbors=30,  # 从15改为30，增强全局结构
-                min_dist=0.01,   # 从0.1改为0.01，允许紧密堆积
+                min_dist=0.05,   # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
                 spread=1.0,
                 metric='cosine',
-                target_weight=0.7,
+                target_weight=0.5,  # 超级锚点策略：降低权重，向量注入是主要约束
                 target_metric='categorical',
                 random_state=42,
                 n_jobs=1
             )
-            coords_2d = reducer.fit_transform(embeddings, y=targets)
+            # 使用注入后的混合向量（X_combined）替代原始embeddings
+            coords_2d = reducer.fit_transform(X_combined, y=targets)
             
             # 坐标归一化到 0-3000
             min_coords = coords_2d.min(axis=0)
@@ -647,9 +674,25 @@ class SonicCompassMainWindow(QMainWindow):
             # 加载坐标
             coords_2d = self.processor.load_coordinates()
             if coords_2d is None:
-                print("[WARNING] 未找到预计算的坐标，将在初始化时计算")
+                print("[WARNING] 未找到预计算的坐标，将自动计算 UMAP 坐标...")
+                # 自动计算 UMAP 坐标
+                coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor)
+                if coords_2d is not None:
+                    # 保存新计算的坐标
+                    self.processor.save_coordinates(coords_2d)
+                    print("[INFO] UMAP 坐标计算完成并已保存")
             else:
-                print(f"[DEBUG] 加载坐标: shape={coords_2d.shape}, range=[{coords_2d.min(axis=0)}, {coords_2d.max(axis=0)}]")
+                # 检查坐标有效性
+                valid_mask = np.isfinite(coords_2d).all(axis=1)
+                valid_count = np.sum(valid_mask)
+                if valid_count == 0:
+                    print("[ERROR] 加载的坐标全部无效，将重新计算...")
+                    coords_2d = self._compute_umap_coordinates_sync(metadata, embeddings, self.processor)
+                    if coords_2d is not None:
+                        self.processor.save_coordinates(coords_2d)
+                        print("[INFO] UMAP 坐标重新计算完成并已保存")
+                else:
+                    print(f"[DEBUG] 加载坐标: shape={coords_2d.shape}, 有效={valid_count}/{len(coords_2d)}, range=[{coords_2d[valid_mask].min(axis=0)}, {coords_2d[valid_mask].max(axis=0)}]")
             
             # 创建搜索核心
             self.search_core = SearchCore(
@@ -823,6 +866,101 @@ class SonicCompassMainWindow(QMainWindow):
             if hasattr(self, 'recalc_umap_btn'):
                 self.recalc_umap_btn.setEnabled(True)
             self.status_label.setText("Ready")
+    
+    def _compute_umap_coordinates_sync(self, metadata, embeddings, processor):
+        """
+        同步计算 UMAP 坐标（用于初始化时自动计算）
+        
+        Args:
+            metadata: 元数据列表
+            embeddings: 向量矩阵
+            processor: DataProcessor 实例
+            
+        Returns:
+            2D 坐标矩阵，如果失败则返回 None
+        """
+        try:
+            import umap
+            from sklearn.preprocessing import LabelEncoder
+            import numpy as np
+            
+            print("[INFO] 开始计算 UMAP 坐标...")
+            
+            # 提取主类别标签用于监督学习
+            targets = []
+            if processor.ucs_manager:
+                for meta in metadata:
+                    cat_id = meta.get('category', 'UNCATEGORIZED')
+                    main_cat = processor.ucs_manager.get_main_category_by_id(cat_id)
+                    targets.append(main_cat if main_cat != "UNCATEGORIZED" else "UNCATEGORIZED")
+            else:
+                targets = ["UNCATEGORIZED"] * len(metadata)
+            
+            # 【超级锚点策略】保存原始字符串列表（用于向量注入）
+            targets_original = targets.copy()
+            
+            # 编码标签
+            if any(t != "UNCATEGORIZED" and t is not None for t in targets):
+                le = LabelEncoder()
+                encoded_targets = []
+                for t in targets_original:
+                    if t == "UNCATEGORIZED" or t is None:
+                        encoded_targets.append(-1)
+                    else:
+                        encoded_targets.append(t)
+                
+                unique_targets = sorted(set([t for t in encoded_targets if t != -1]))
+                if len(unique_targets) > 1:
+                    le.fit(unique_targets)
+                    encoded = [le.transform([t])[0] if t != -1 else -1 for t in encoded_targets]
+                else:
+                    encoded = [-1] * len(targets)
+            else:
+                encoded = [-1] * len(targets)
+            
+            # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
+            print("[INFO] 应用超级锚点策略...")
+            X_combined, _ = inject_category_vectors(
+                embeddings=embeddings,
+                target_labels=targets_original,  # 使用原始字符串列表
+                audio_weight=1.0,
+                category_weight=15.0
+            )
+            print(f"[INFO] 向量注入完成: {embeddings.shape} -> {X_combined.shape}")
+            
+            # 计算 UMAP
+            reducer = umap.UMAP(
+                n_components=2,
+                n_neighbors=30,
+                min_dist=0.05,  # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
+                spread=1.0,
+                metric='cosine',
+                target_weight=0.5,  # 超级锚点策略：降低权重，向量注入是主要约束
+                target_metric='categorical',
+                random_state=42,
+                n_jobs=1
+            )
+            
+            if any(t != -1 for t in encoded):
+                # 使用注入后的混合向量（X_combined）替代原始embeddings
+                coords_2d = reducer.fit_transform(X_combined, y=encoded)
+            else:
+                coords_2d = reducer.fit_transform(X_combined)
+            
+            # 坐标归一化到 0-3000
+            min_coords = coords_2d.min(axis=0)
+            max_coords = coords_2d.max(axis=0)
+            scale = 3000.0 / (np.max(max_coords - min_coords) + 1e-5)
+            coords_2d = (coords_2d - min_coords) * scale
+            
+            print(f"[INFO] UMAP 坐标计算完成: shape={coords_2d.shape}, range=[{coords_2d.min(axis=0)}, {coords_2d.max(axis=0)}]")
+            return coords_2d
+            
+        except Exception as e:
+            print(f"[ERROR] UMAP 坐标计算失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def _on_atlas_error(self, error_msg: str):
         """处理构建错误"""

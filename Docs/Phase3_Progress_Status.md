@@ -1463,3 +1463,28 @@ python tools/verify_subset.py VEHICLE
 
 **详细文档**: 参见 [Phase3.5_Toolchain_DataPipeline.md](Phase3.5_Toolchain_DataPipeline.md)
 
+### 最新更新（2025-01-10）
+
+#### ⚠️ 超级锚点策略实施 (Super-Anchor Strategy)
+
+**问题**: "大陆漂移"问题 - 同一主类别下的子类别数据在UMAP空间中"漂移"到其他大陆，尽管分类标签正确。
+
+**解决方案**: 实施超级锚点策略，通过将主类别的One-Hot向量注入到音频embedding中，强制同一主类别的数据聚集。
+
+**实施状态**:
+- ✅ **核心实现**: `inject_category_vectors()` 函数已添加到 `core/data_processor.py`
+- ✅ **代码复用**: 所有脚本（`recalculate_umap.py`, `rebuild_atlas.py`, `tools/verify_subset.py`, `ui/main_window.py`）共享同一实现
+- ✅ **参数统一**: 所有脚本使用一致的参数（`category_weight=15.0`, `min_dist=0.05`, `target_weight=0.5`）
+- ✅ **算法一致性**: UI实时计算与离线计算使用相同逻辑，避免视图割裂
+
+**当前状态**:
+- ⚠️ **问题未完全解决**: 初步测试显示策略已正确实施，但"大陆漂移"问题仍然存在
+- 📋 **需要调优**: 可能需要提高 `category_weight`（从15.0到20.0-25.0）或调整其他参数
+- 📊 **验证方法**: 使用 `tools/verify_subset.py --all` 生成可视化图和CSV，检查特定案例（如ANMLMisc的Asian Palm Civet）是否回到正确大陆
+
+**技术细节**:
+- **架构改进**: 遵循DRY原则，核心函数封装在`core`模块
+- **Uncategorized处理**: 传入字符串列表而非编码后的整数数组，避免OneHotEncoder的-1陷阱
+- **性能影响**: 向量维度从1024增加到~1106（1024 + 82类别），性能影响可忽略
+
+**相关文档**: 参见 [SUPER_ANCHOR_STRATEGY.md](SUPER_ANCHOR_STRATEGY.md)
