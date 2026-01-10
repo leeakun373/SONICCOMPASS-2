@@ -18,7 +18,7 @@ from PySide6.QtCore import Qt, QRectF
 from ui.components import CanvasView, SearchBar, InspectorPanel, UniversalTagger
 from ui.visualizer import SonicUniverse
 from ui.styles import GLOBAL_STYLESHEET
-from core import DataProcessor, SearchCore, VectorEngine, UCSManager, inject_category_vectors
+from core import DataProcessor, SearchCore, VectorEngine, UCSManager, inject_category_vectors, umap_config
 from data import SoundminerImporter, ConfigManager
 
 
@@ -97,29 +97,21 @@ class UMAPRecalcThread(QThread):
             
             # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
             self.progress_signal.emit(45, "Applying Super-Anchor Strategy...")
+            injection_params = umap_config.get_injection_params()
             X_combined, _ = inject_category_vectors(
                 embeddings=embeddings,
                 target_labels=categories_original,  # 使用原始字符串列表
-                audio_weight=1.0,
-                category_weight=15.0
+                audio_weight=injection_params['audio_weight'],
+                category_weight=injection_params['category_weight']
             )
             
-            # Supervised UMAP (使用新参数)
+            # Supervised UMAP (使用统一配置)
             self.progress_signal.emit(50, "Computing UMAP coordinates...")
             import umap
             import numpy as np
             
-            reducer = umap.UMAP(
-                n_components=2,
-                n_neighbors=30,  # 从15改为30，增强全局结构
-                min_dist=0.05,   # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
-                spread=1.0,
-                metric='cosine',
-                target_weight=0.5,  # 超级锚点策略：降低权重，向量注入是主要约束
-                target_metric='categorical',
-                random_state=42,
-                n_jobs=1
-            )
+            umap_params = umap_config.get_umap_params()
+            reducer = umap.UMAP(**umap_params)
             # 使用注入后的混合向量（X_combined）替代原始embeddings
             coords_2d = reducer.fit_transform(X_combined, y=targets)
             
@@ -242,25 +234,17 @@ class AtlasBuilderThread(QThread):
             
             # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
             self.progress_signal.emit(75, "Applying Super-Anchor Strategy...")
+            injection_params = umap_config.get_injection_params()
             X_combined, _ = inject_category_vectors(
                 embeddings=embeddings,
                 target_labels=categories_original,  # 使用原始字符串列表
-                audio_weight=1.0,
-                category_weight=15.0
+                audio_weight=injection_params['audio_weight'],
+                category_weight=injection_params['category_weight']
             )
             
-            # Supervised UMAP (更新参数)
-            reducer = umap.UMAP(
-                n_components=2,
-                n_neighbors=30,  # 从15改为30，增强全局结构
-                min_dist=0.05,   # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
-                spread=1.0,
-                metric='cosine',
-                target_weight=0.5,  # 超级锚点策略：降低权重，向量注入是主要约束
-                target_metric='categorical',
-                random_state=42,
-                n_jobs=1
-            )
+            # Supervised UMAP (使用统一配置)
+            umap_params = umap_config.get_umap_params()
+            reducer = umap.UMAP(**umap_params)
             # 使用注入后的混合向量（X_combined）替代原始embeddings
             coords_2d = reducer.fit_transform(X_combined, y=targets)
             
@@ -920,26 +904,18 @@ class SonicCompassMainWindow(QMainWindow):
             
             # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
             print("[INFO] 应用超级锚点策略...")
+            injection_params = umap_config.get_injection_params()
             X_combined, _ = inject_category_vectors(
                 embeddings=embeddings,
                 target_labels=targets_original,  # 使用原始字符串列表
-                audio_weight=1.0,
-                category_weight=15.0
+                audio_weight=injection_params['audio_weight'],
+                category_weight=injection_params['category_weight']
             )
             print(f"[INFO] 向量注入完成: {embeddings.shape} -> {X_combined.shape}")
             
-            # 计算 UMAP
-            reducer = umap.UMAP(
-                n_components=2,
-                n_neighbors=30,
-                min_dist=0.05,  # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
-                spread=1.0,
-                metric='cosine',
-                target_weight=0.5,  # 超级锚点策略：降低权重，向量注入是主要约束
-                target_metric='categorical',
-                random_state=42,
-                n_jobs=1
-            )
+            # 计算 UMAP (使用统一配置)
+            umap_params = umap_config.get_umap_params()
+            reducer = umap.UMAP(**umap_params)
             
             if any(t != -1 for t in encoded):
                 # 使用注入后的混合向量（X_combined）替代原始embeddings

@@ -8,6 +8,7 @@ from .search_core import SearchCore
 from .vector_engine import VectorEngine
 from .ucs_manager import UCSManager
 from .category_color_mapper import CategoryColorMapper
+from . import umap_config
 
 __all__ = [
     'DataProcessor',
@@ -16,5 +17,6 @@ __all__ = [
     'VectorEngine',
     'UCSManager',
     'CategoryColorMapper',
+    'umap_config',
 ]
 

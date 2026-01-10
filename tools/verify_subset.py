@@ -21,7 +21,7 @@ if sys.platform == 'win32':
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data import SoundminerImporter
-from core import DataProcessor, VectorEngine, UCSManager, inject_category_vectors
+from core import DataProcessor, VectorEngine, UCSManager, inject_category_vectors, umap_config
 import umap
 
 
@@ -313,29 +313,32 @@ def visualize_results(
     # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
     if use_supervised and len(metadata_list) > 50:  # 小数据集可以跳过，避免过度约束
         print(f"[可视化] 应用超级锚点策略（数据量: {len(metadata_list)}）...")
-        # 根据数据量自适应调整权重（小数据集用较小权重）
-        category_weight = 10.0 if len(metadata_list) < 500 else 15.0
+        # 从统一配置获取注入参数（支持自适应权重）
+        injection_params = umap_config.get_injection_params(
+            data_size=len(metadata_list),
+            use_adaptive=True  # 启用自适应：小数据集用较小权重
+        )
         X_combined, _ = inject_category_vectors(
             embeddings=embeddings,
             target_labels=targets_original,
-            audio_weight=1.0,
-            category_weight=category_weight
+            audio_weight=injection_params['audio_weight'],
+            category_weight=injection_params['category_weight']
         )
-        print(f"[可视化] 向量注入完成: {embeddings.shape} -> {X_combined.shape} (权重: {category_weight})")
+        print(f"[可视化] 向量注入完成: {embeddings.shape} -> {X_combined.shape} (权重: {injection_params['category_weight']})")
         embeddings = X_combined  # 使用混合向量替代原始embeddings
     else:
         print(f"[可视化] 跳过超级锚点策略（数据量: {len(metadata_list)}）...")
     
-    reducer = umap.UMAP(
-        n_components=2,
-        n_neighbors=min(80, len(embeddings) - 1) if len(embeddings) > 1 else 15,
-        min_dist=0.05 if use_supervised and len(metadata_list) > 50 else 0.1,  # 超级锚点策略：降低以允许紧密堆积
-        spread=0.5,
-        metric='cosine',
-        random_state=42,
-        target_weight=0.5 if use_supervised else None,  # 超级锚点策略：降低权重，向量注入是主要约束
-        target_metric='categorical' if use_supervised else None
+    # 从统一配置获取UMAP参数（支持自适应和场景判断）
+    umap_params = umap_config.get_umap_params(
+        data_size=len(metadata_list),
+        use_adaptive=True,  # 启用自适应：小数据集使用较小的 min_dist
+        is_supervised=use_supervised  # 根据是否为监督学习决定是否添加监督参数
     )
+    # 根据数据量调整n_neighbors（避免超出数据量）
+    umap_params['n_neighbors'] = min(umap_params['n_neighbors'], len(embeddings) - 1) if len(embeddings) > 1 else 15
+    
+    reducer = umap.UMAP(**umap_params)
     
     # 如果有标签，使用监督 UMAP
     if use_supervised:

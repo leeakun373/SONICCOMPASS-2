@@ -129,7 +129,7 @@ def rebuild():
     print("   [步骤] 导入 core 模块...", flush=True)
     sys.stdout.flush()
     try:
-        from core import DataProcessor, VectorEngine, inject_category_vectors
+        from core import DataProcessor, VectorEngine, inject_category_vectors, umap_config
         print("   [步骤] ✅ DataProcessor 和 VectorEngine 导入成功", flush=True)
         sys.stdout.flush()
     except ImportError as e:
@@ -263,28 +263,20 @@ def rebuild():
         # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
         print("   ⚓ 正在实施超级锚点策略 (Super-Anchor Strategy)...", flush=True)
         print("   强制同一主类别的数据聚集，解决'大陆漂移'问题...", flush=True)
+        injection_params = umap_config.get_injection_params()
         X_combined, _ = inject_category_vectors(
             embeddings=embeddings,
             target_labels=targets_original,  # 使用原始字符串列表，避免-1陷阱
-            audio_weight=1.0,
-            category_weight=15.0  # 强力胶水：15.0的权重足以压倒音频特征差异
+            audio_weight=injection_params['audio_weight'],
+            category_weight=injection_params['category_weight']
         )
         print(f"   ✅ 向量注入完成: {embeddings.shape} -> {X_combined.shape}", flush=True)
-        print(f"   音频权重: 1.0, 类别锚点权重: 15.0", flush=True)
+        print(f"   音频权重: {injection_params['audio_weight']}, 类别锚点权重: {injection_params['category_weight']}", flush=True)
         sys.stdout.flush()
 
-        reducer = umap.UMAP(
-            n_components=2,
-            n_neighbors=80,  # 调整为 15 以保持更好的全局结构
-            min_dist=0.05,  # 超级锚点策略：降低以允许紧密堆积，但不过于重叠
-            spread=0.5,
-            metric='cosine',
-            target_weight=0.5,  # 超级锚点策略：降低权重，向量注入的权重15.0是主要约束
-            target_metric='categorical',
-            random_state=42,
-            n_jobs=1,
-            verbose=True  # 显示详细进度信息
-        )
+        # 从统一配置获取UMAP参数
+        umap_params = umap_config.get_umap_params()
+        reducer = umap.UMAP(**umap_params)
         
         print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
         print("   [提示] UMAP 会显示详细的计算进度信息")

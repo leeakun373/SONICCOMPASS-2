@@ -33,7 +33,7 @@ except ImportError:
     sys.exit(1)
 
 from data import SoundminerImporter
-from core import DataProcessor, VectorEngine, inject_category_vectors
+from core import DataProcessor, VectorEngine, inject_category_vectors, umap_config
 
 
 def recalculate_umap():
@@ -190,14 +190,15 @@ def recalculate_umap():
     # 【超级锚点策略】向量注入：将主类别的One-Hot向量注入到音频embedding中
     print("\n⚓ 正在实施超级锚点策略 (Super-Anchor Strategy)...")
     print("   强制同一主类别的数据聚集，解决'大陆漂移'问题...")
+    injection_params = umap_config.get_injection_params()
     X_combined, _ = inject_category_vectors(
         embeddings=embeddings,
         target_labels=targets_original,  # 使用原始字符串列表，避免-1陷阱
-        audio_weight=1.0,
-        category_weight=15.0  # 强力胶水：15.0的权重足以压倒音频特征差异
+        audio_weight=injection_params['audio_weight'],
+        category_weight=injection_params['category_weight']
     )
     print(f"   ✅ 向量注入完成: {embeddings.shape} -> {X_combined.shape}")
-    print(f"   音频权重: 1.0, 类别锚点权重: 15.0")
+    print(f"   音频权重: {injection_params['audio_weight']}, 类别锚点权重: {injection_params['category_weight']}")
     
     # 6. Phase 3.5: 计算 Supervised UMAP 坐标（使用超级锚点策略）
     print("\n🗺️  计算 Supervised UMAP 坐标（使用超级锚点策略）...")
@@ -210,67 +211,9 @@ def recalculate_umap():
     coord_start = time.time()
     
     try:
-        reducer = umap.UMAP(
-            # === 基础参数 ===
-            n_components=2,      # 输出维度：2D 坐标（用于可视化）
-                                 # 范围：≥ 1（通常为 2 或 3）
-                                 # 推荐：2（2D可视化）或 3（3D可视化）
-            
-            # === 局部结构参数 ===
-            n_neighbors=80,      # 局部邻居数量：控制每个点考虑多少个最近邻
-                                 # 范围：2 到 min(200, 数据量-1)
-                                 # 推荐：5-50（小数据集），15-100（大数据集）
-                                 # 值越大：保留更多全局结构，形成更大的"大陆"
-                                 # 值越小：保留更多局部细节，形成更多"小岛"
-                                 # 从30提升到50：让同一主类别的点更紧密聚集
-            
-            min_dist=0.05,       # 最小距离：控制点之间的最小间距（超级锚点策略：降低以允许紧密堆积）
-                                 # 范围：0.0 到 1.0
-                                 # 推荐：0.0-0.1（紧密），0.1-0.5（中等），0.5-1.0（分散）
-                                 # 值越小：点可以更紧密堆积，形成密集的"大陆"
-                                 # 值越大：点之间强制保持距离，形成分散的"群岛"
-                                 # 超级锚点策略：0.05允许同类数据紧密聚集，但不过于重叠
-            
-            spread=0.5,           # 扩散参数：控制点之间的平均距离
-                                 # 范围：0.1 到 3.0（理论上无上限，但通常 < 3.0）
-                                 # 推荐：0.3-1.0（紧凑），1.0-2.0（中等），2.0-3.0（分散）
-                                 # 值越小：点更紧密，形成紧凑的"大陆"
-                                 # 值越大：点更分散，形成广阔的"海洋"
-                                 # 降低到0.5：让群岛聚拢，减少空白区域
-            
-            # === 距离度量 ===
-            metric='cosine',      # 距离度量方式：使用余弦相似度
-                                 # 可选值：'euclidean', 'manhattan', 'chebyshev', 'minkowski',
-                                 #         'cosine', 'hamming', 'jaccard', 'haversine' 等
-                                 # 推荐：'cosine'（高维向量/文本嵌入），'euclidean'（低维数据）
-                                 # 适合高维向量（如文本嵌入），关注方向而非距离
-            
-            # === 监督学习参数（关键）===
-            target_weight=0.5,   # 监督权重：控制标签（主类别）对布局的影响程度（超级锚点策略：降低权重）
-                                 # 范围：0.0 到 1.0
-                                 # 推荐：0.0（无监督），0.3-0.7（弱监督），0.7-1.0（强监督）
-                                 # 超级锚点策略：由于向量注入已经很强，这里降低权重到0.5作为辅助
-                                 # 向量注入的权重15.0是主要约束，这里的target_weight作为辅助监督
-            
-            target_metric='categorical',  # 标签类型：分类标签（主类别名称）
-                                          # 可选值：'categorical'（离散类别），'continuous'（连续值）
-                                          # 推荐：'categorical'（主类别名称），'continuous'（数值标签）
-                                          # 告诉 UMAP 这些是离散的类别，不是连续值
-            
-            # === 其他参数 ===
-            random_state=42,      # 随机种子：确保每次运行结果一致（可复现）
-                                 # 范围：任意整数（None = 随机）
-                                 # 推荐：固定值（如 42）用于可复现，None 用于每次不同结果
-            
-            n_jobs=1,             # 并行任务数：控制 CPU 核心使用
-                                 # 范围：-1（全部核心），1（单线程），2-N（指定核心数）
-                                 # 推荐：1（避免内存溢出），-1（大数据集且内存充足）
-                                 # 1 = 单线程（避免内存溢出），-1 = 使用所有核心
-            
-            verbose=True          # 详细输出：显示 UMAP 计算过程的进度信息
-                                 # 可选值：True（显示进度），False（静默）
-                                 # 推荐：True（长时间计算时可以看到进度）
-        )
+        # 从统一配置获取UMAP参数
+        umap_params = umap_config.get_umap_params()
+        reducer = umap.UMAP(**umap_params)
         print("   [进度] 正在运行 UMAP fit_transform（这可能需要几分钟）...")
         print(f"   [信息] 数据量: {len(embeddings)} 条，向量维度: {embeddings.shape[1]}")
         if isinstance(targets, (list, np.ndarray)):
